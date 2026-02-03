@@ -1,6 +1,7 @@
 import os
 import pathspec
 from argparse import ArgumentParser
+from typing import Set
 
 
 def load_gitignore(gitignore_path: str = ".gitignore") -> pathspec.PathSpec:
@@ -23,12 +24,31 @@ def load_gitignore(gitignore_path: str = ".gitignore") -> pathspec.PathSpec:
     return spec
 
 
+# 定义需要忽略具体内容的大型目录集合
+IGNORE_CONTENT_DIRS: Set[str] = {
+    "venv",
+    "env", 
+    "node_modules",
+    "__pycache__",
+    ".idea",
+    ".vscode"
+}
+
+def should_ignore_content(dir_name: str) -> bool:
+    """
+    判断是否应该忽略目录的具体内容
+    :param dir_name: 目录名称
+    :return: 是否忽略内容
+    """
+    return dir_name in IGNORE_CONTENT_DIRS
+
 def generate_tree(
         root_dir: str = ".",
         spec: pathspec.PathSpec = None,
         prefix: str = "",
         is_last: bool = True,
-        output_lines: list = None
+        output_lines: list = None,
+        ignore_content_dirs: Set[str] = None
 ) -> None:
     """
     递归生成文件树形结构（过滤.gitignore规则）
@@ -40,6 +60,8 @@ def generate_tree(
     """
     if output_lines is None:
         output_lines = []
+    if ignore_content_dirs is None:
+        ignore_content_dirs = IGNORE_CONTENT_DIRS
 
     # 处理根目录路径（规范化）
     root_dir = os.path.abspath(root_dir)
@@ -84,13 +106,21 @@ def generate_tree(
 
         # 递归处理子目录
         if os.path.isdir(entry_path):
-            generate_tree(
-                root_dir=entry_path,
-                spec=spec,
-                prefix=current_prefix,
-                is_last=is_entry_last,
-                output_lines=output_lines
-            )
+            # 如果是需要忽略内容的目录，只显示目录名，不展开内容
+            if should_ignore_content(entry):
+                # 添加省略号表示内容被忽略
+                ellipsis_line = current_prefix + "└── [...]"
+                output_lines.append(ellipsis_line)
+                print(ellipsis_line)
+            else:
+                generate_tree(
+                    root_dir=entry_path,
+                    spec=spec,
+                    prefix=current_prefix,
+                    is_last=is_entry_last,
+                    output_lines=output_lines,
+                    ignore_content_dirs=ignore_content_dirs
+                )
 
     return output_lines
 
@@ -102,14 +132,20 @@ def main():
     parser.add_argument("--dir", default="..", help="目标目录（默认当前目录）")
     parser.add_argument("--gitignore", default=".gitignore", help=".gitignore文件路径（默认当前目录）")
     parser.add_argument("--output", help="导出文件路径（如tree.md，可选）")
+    parser.add_argument("--ignore-dirs", nargs='*', default=[], 
+                       help="额外要忽略内容的目录名称（如 '.git' 'build'），默认忽略 venv node_modules 等")
     args = parser.parse_args()
 
     # 加载.gitignore规则
     spec = load_gitignore(args.gitignore)
-
+    
+    # 合并默认忽略目录和用户指定的忽略目录
+    ignore_dirs_set = IGNORE_CONTENT_DIRS.copy()
+    ignore_dirs_set.update(set(args.ignore_dirs))
+    
     # 生成树形结构
     print(f"\n📁 生成 {args.dir} 的文件树形结构（已过滤.gitignore规则）：\n")
-    output_lines = generate_tree(root_dir=args.dir, spec=spec)
+    output_lines = generate_tree(root_dir=args.dir, spec=spec, ignore_content_dirs=ignore_dirs_set)
 
     # 导出到文件（如果指定）
     if args.output:
@@ -119,6 +155,10 @@ def main():
             f.write("\n".join(output_lines))
             f.write("\n```")
         print(f"\n✅ 树形结构已导出到：{os.path.abspath(args.output)}")
+    
+    # 显示忽略的目录信息
+    if args.ignore_dirs or IGNORE_CONTENT_DIRS:
+        print(f"\n📋 已忽略内容的目录: {', '.join(sorted(ignore_dirs_set))}")
 
 
 if __name__ == "__main__":
