@@ -19,22 +19,46 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background-color: #f5f7fa;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
+}
+
+h1 {
+  color: white;
+  font-size: 3rem;
+  margin-bottom: 2rem;
+  text-align: center;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .kana-link {
   margin-top: 20px;
-  padding: 12px 24px;
+  padding: 15px 30px;
   background-color: #3498db;
   color: white;
   text-decoration: none;
-  border-radius: 8px;
-  font-size: 1.1rem;
+  border-radius: 50px;
+  font-size: 1.2rem;
+  font-weight: 600;
   transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(52, 152, 219, 0.4);
 }
 
 .kana-link:hover {
   background-color: #2980b9;
-  transform: translateY(-2px);
+  transform: translateY(-5px);
+  box-shadow: 0 8px 25px rgba(52, 152, 219, 0.6);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  h1 {
+    font-size: 2rem;
+  }
+  
+  .kana-link {
+    padding: 12px 24px;
+    font-size: 1rem;
+  }
 }
 </style>
