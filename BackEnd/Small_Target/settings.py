@@ -85,7 +85,7 @@ DATABASES = {
         'NAME': 'smallTarget',
         'USER': 'postgres',
         'PASSWORD': 'password',
-        'HOST': '172.27.154.57',  # 数据库地址
+        'HOST': 'localhost',  # 数据库地址
         'PORT': '5432',       # PostgreSQL默认端口
     }
 }

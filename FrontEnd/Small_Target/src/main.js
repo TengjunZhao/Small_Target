@@ -6,6 +6,8 @@ import router from './router'
 
 // 引入全局样式
 import './assets/main.css'
+// 引入WindiCSS样式
+import 'virtual:windi.css'
 
 const app = createApp(App)
 
