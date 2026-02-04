@@ -75,8 +75,12 @@ WSGI_APPLICATION = 'Small_Target.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'smallTarget',
+        'USER': 'postgres',
+        'PASSWORD': 'password',
+        'HOST': '172.27.154.57',  # 数据库地址
+        'PORT': '5432',       # PostgreSQL默认端口
     }
 }
 
