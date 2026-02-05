@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import Home from '../views/Home.vue'; // 主页面
 import KanaPractice from '../views/KanaPractice.vue'; // 50音练习组件
+import ProjectManagement from '../views/ProjectManagement.vue'; // 项目管理组件
 
 const routes = [
   {
@@ -12,6 +13,11 @@ const routes = [
     path: '/kana-practice',
     name: 'kana-practice',
     component: KanaPractice,
+  },
+  {
+    path: '/projects',
+    name: 'projects',
+    component: ProjectManagement,
   },
 ]
 

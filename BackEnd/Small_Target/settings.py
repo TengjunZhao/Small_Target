@@ -38,7 +38,9 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'corsheaders',
-    'kana'
+    'rest_framework',
+    'kana',
+    'project_management'
 ]
 
 MIDDLEWARE = [

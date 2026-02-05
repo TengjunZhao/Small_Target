@@ -21,4 +21,6 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     # Expose Kana API under /api/kana/
     path('api/kana/', include('kana.urls')),
+    # Project management API
+    path('api/projects/', include('project_management.urls')),
 ]
