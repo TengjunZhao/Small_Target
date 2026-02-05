@@ -66,6 +66,7 @@
                 ref="taskTreeRef"
                 :data="taskTreeData"
                 node-key="id"
+                :expanded-keys="expandedKeys"
                 default-expand-all
                 :props="treeProps"
                 draggable
@@ -211,6 +212,7 @@ const projectRules = {
 
 // 树形控件相关
 const taskTreeRef = ref()
+const expandedKeys = ref([])
 const treeProps = {
   children: 'children',
   label: 'name'
@@ -225,8 +227,26 @@ const contextMenuNode = ref(null)
 // 甘特图相关
 const simpleGanttTasks = ref([])
 
+// 甘特图缩放控制
+const zoomLevel = ref(1)
+
+const zoomIn = () => {
+  zoomLevel.value = Math.min(zoomLevel.value + 0.2, 3)
+  ElMessage.info(`缩放级别: ${Math.round(zoomLevel.value * 100)}%`)
+}
+
+const zoomOut = () => {
+  zoomLevel.value = Math.max(zoomLevel.value - 0.2, 0.5)
+  ElMessage.info(`缩放级别: ${Math.round(zoomLevel.value * 100)}%`)
+}
+
+const fitToScreen = () => {
+  zoomLevel.value = 1
+  ElMessage.success('已重置为100%缩放')
+}
+
 // API基础URL
-const API_BASE = '/api/projects'
+const API_BASE = '/api'
 
 // 生命周期钩子
 onMounted(() => {
@@ -240,11 +260,13 @@ const goBack = () => {
 
 const loadProjects = async () => {
   try {
-    const response = await axios.get(`${API_BASE}/projects/`)
-    projects.value = response.data
+    const response = await axios.get(`${API_BASE}/projects/projects/`)
+    // 确保返回的是数组格式
+    projects.value = Array.isArray(response.data) ? response.data : []
   } catch (error) {
     ElMessage.error('加载项目列表失败')
     console.error(error)
+    projects.value = [] // 设置为空数组以防错误
   }
 }
 
@@ -256,7 +278,7 @@ const selectProject = (project) => {
 const loadProjectTasks = async (projectId) => {
   try {
     console.log('Loading project tasks for ID:', projectId)
-    const response = await axios.get(`${API_BASE}/projects/${projectId}/`)
+    const response = await axios.get(`${API_BASE}/projects/projects/${projectId}/`)
     console.log('Project data received:', response.data)
     taskTreeData.value = response.data.tasks || []
     console.log('Task tree data:', taskTreeData.value)
@@ -280,7 +302,7 @@ const loadProjectTasks = async (projectId) => {
 
 const loadDemoData = async () => {
   try {
-    await axios.post(`${API_BASE}/projects/create_demo/`)
+    await axios.post(`${API_BASE}/projects/projects/create_demo/`)
     ElMessage.success('演示数据加载成功')
     loadProjects()
   } catch (error) {
@@ -293,10 +315,10 @@ const saveProject = async () => {
   // 表单验证和保存逻辑
   try {
     if (editingProject.value) {
-      await axios.put(`${API_BASE}/projects/${editingProject.value.id}/`, projectForm)
+      await axios.put(`${API_BASE}/projects/projects/${editingProject.value.id}/`, projectForm)
       ElMessage.success('项目更新成功')
     } else {
-      await axios.post(`${API_BASE}/projects/`, projectForm)
+      await axios.post(`${API_BASE}/projects/projects/`, projectForm)
       ElMessage.success('项目创建成功')
     }
     showCreateDialog.value = false
@@ -326,7 +348,7 @@ const deleteProject = async (project) => {
       cancelButtonText: '取消',
       type: 'warning'
     })
-    await axios.delete(`${API_BASE}/projects/${project.id}/`)
+    await axios.delete(`${API_BASE}/projects/projects/${project.id}/`)
     ElMessage.success('项目删除成功')
     loadProjects()
     if (selectedProject.value?.id === project.id) {
@@ -346,20 +368,16 @@ const addRootTask = () => {
 }
 
 const expandAll = () => {
-  if (taskTreeRef.value) {
-    // 获取所有节点的key并展开
-    const allKeys = getAllNodeKeys(taskTreeData.value);
-    taskTreeRef.value.setExpandedKeys(allKeys);
-    ElMessage.success('已展开所有节点');
-  }
+  // 获取所有节点的key并展开
+  const allKeys = getAllNodeKeys(taskTreeData.value);
+  expandedKeys.value = allKeys;
+  ElMessage.success('已展开所有节点');
 }
 
 const collapseAll = () => {
-  if (taskTreeRef.value) {
-    // 收起所有节点
-    taskTreeRef.value.setExpandedKeys([]);
-    ElMessage.success('已收起所有节点');
-  }
+  // 收起所有节点
+  expandedKeys.value = [];
+  ElMessage.success('已收起所有节点');
 }
 
 const getAllNodeKeys = (nodes) => {
@@ -410,7 +428,7 @@ const updateTaskProgress = async (task) => {
       inputPattern: /^(\d{1,2}(\.\d+)?|100)$/,
       inputErrorMessage: '请输入0-100之间的数字'
     })
-    await axios.patch(`${API_BASE}/tasks/${task.id}/update_progress/`, {
+    await axios.patch(`${API_BASE}/projects/tasks/${task.id}/update_progress/`, {
       progress: parseFloat(value)
     })
     ElMessage.success('进度更新成功')

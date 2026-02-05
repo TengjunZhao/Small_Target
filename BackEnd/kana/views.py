@@ -5,6 +5,17 @@ import json
 import random
 from .models import Kana, UserProgress
 
+def _weighted_choice(items, weights):
+    """加权随机选择算法"""
+    total = sum(weights)
+    r = random.uniform(0, total)
+    upto = 0
+    for item, w in zip(items, weights):
+        upto += w
+        if r <= upto:
+            return item
+    return items[0]
+
 @csrf_exempt
 def index(request):
     return JsonResponse({'message': 'Hello from kana app!'})
