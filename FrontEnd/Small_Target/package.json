@@ -14,10 +14,11 @@
     "@element-plus/icons-vue": "^2.3.2",
     "axios": "^1.13.4",
     "element-plus": "^2.13.2",
-
+    "jordium-gantt-vue3": "^1.8.1",
     "pinia": "^3.0.4",
     "vue": "^3.5.26",
     "vue-router": "^4.6.4",
+    "vue3-gantt": "^1.1.8-7",
     "vuedraggable": "^2.24.3"
   },
   "devDependencies": {

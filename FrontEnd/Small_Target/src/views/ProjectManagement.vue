@@ -117,27 +117,18 @@
                 <el-button type="primary" @click="refreshGantt">刷新数据</el-button>
               </div>
               
-              <!-- WindiCSS 简单甘特图实现 -->
-              <div class="simple-gantt">
-                <div v-for="task in simpleGanttTasks" :key="task.id" class="gantt-row">
-                  <div class="task-name">{{ task.name }}</div>
-                  <div class="task-timeline">
-                    <div 
-                      class="task-bar"
-                      :style="{
-                        width: `${Math.min(100, Math.max(0, task.progress))}%`,
-                        backgroundColor: task.progress >= 100 ? '#2ecc71' : '#3498db',
-                        height: '20px',
-                        borderRadius: '3px',
-                        position: 'relative'
-                      }"
-                    >
-                      <span class="task-progress-text" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 12px; font-weight: bold;">
-                        {{ Math.min(100, Math.max(0, task.progress)) }}%
-                      </span>
-                    </div>
-                  </div>
-                </div>
+              <!-- 专业甘特图组件 -->
+              <div class="professional-gantt">
+                <GanttChart
+                  :data="ganttData"
+                  :dateRangeList="dateRangeList"
+                  dateText="日期"
+                  itemText="任务"
+                  :options="ganttOptions"
+                  @task-updated="handleTaskUpdated"
+                  @task-clicked="handleTaskClicked"
+                  style="height: 600px;"
+                />
               </div>
             </div>
           </el-tab-pane>
@@ -187,6 +178,8 @@ import { ref, reactive, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { More } from '@element-plus/icons-vue'
 import axios from 'axios'
+import GanttChart from 'vue3-gantt'
+import 'vue3-gantt/dist/style.css'
 
 // 状态管理
 const projects = ref([])
@@ -226,24 +219,26 @@ const contextMenuNode = ref(null)
 
 // 甘特图相关
 const simpleGanttTasks = ref([])
-
-// 甘特图缩放控制
-const zoomLevel = ref(1)
-
-const zoomIn = () => {
-  zoomLevel.value = Math.min(zoomLevel.value + 0.2, 3)
-  ElMessage.info(`缩放级别: ${Math.round(zoomLevel.value * 100)}%`)
-}
-
-const zoomOut = () => {
-  zoomLevel.value = Math.max(zoomLevel.value - 0.2, 0.5)
-  ElMessage.info(`缩放级别: ${Math.round(zoomLevel.value * 100)}%`)
-}
-
-const fitToScreen = () => {
-  zoomLevel.value = 1
-  ElMessage.success('已重置为100%缩放')
-}
+const ganttTasks = ref([])
+const ganttData = ref([])
+const dateRangeList = ref([])
+const ganttOptions = ref({
+  viewMode: 'Day',
+  dateFormat: 'YYYY-MM-DD',
+  columnWidth: 60,
+  barCornerRadius: 3,
+  barHeight: 26,
+  headerHeight: 50,
+  locale: {
+    code: 'zh',
+    name: '中文',
+    weekdays: ['周日', '周一', '周二', '周三', '周四', '周五', '周六'],
+    months: ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月'],
+    week: '周',
+    day: '天',
+    month: '月'
+  }
+})
 
 // API基础URL
 const API_BASE = '/api'
@@ -293,7 +288,88 @@ const loadProjectTasks = async (projectId) => {
       end: task.end_date || ''
     }))
     
-// 已切换到WindicSS简单甘特图实现
+    // 处理专业甘特图数据 - 符合vue3-gantt要求的格式
+    if (tasks.length > 0) {
+      // 计算日期范围
+      const allDates = tasks.flatMap(task => [task.start_date, task.end_date]).filter(Boolean)
+      const startDate = allDates.length > 0 ? 
+        allDates.reduce((min, date) => date < min ? date : min) : 
+        new Date().toISOString().split('T')[0]
+      
+      const endDate = allDates.length > 0 ? 
+        allDates.reduce((max, date) => date > max ? date : max) : 
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      
+      dateRangeList.value = [startDate, endDate]
+      
+      // 构造vue3-gantt需要的数据格式
+      // 展开所有任务（包括子任务）到同一层级
+      const flatTasks = []
+      
+      const flattenTasks = (taskList) => {
+        taskList.forEach(task => {
+          flatTasks.push({
+            id: task.id,
+            name: task.name || `任务-${task.id}`,
+            description: task.description || '',
+            start_date: task.start_date,
+            end_date: task.end_date,
+            progress: task.progress || 0,
+            parent: task.parent
+          })
+          
+          // 递归处理子任务
+          if (task.children && task.children.length > 0) {
+            flattenTasks(task.children)
+          }
+        })
+      }
+      
+      flattenTasks(tasks)
+      
+      console.log('Flat tasks for gantt:', flatTasks)
+      console.log('Date range:', dateRangeList.value)
+      
+      ganttData.value = [{
+        type: 'normal',
+        name: selectedProject.value?.name || '项目任务',
+        schedule: flatTasks.map(task => ({
+          id: task.id,
+          name: task.name,
+          desc: task.description || '',
+          backgroundColor: task.progress >= 100 ? '#2ecc71' : task.progress > 0 ? '#3498db' : '#95a5a6',
+          textColor: '#ffffff',
+          days: [
+            task.start_date || new Date().toISOString().split('T')[0],
+            task.end_date || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+          ]
+        }))
+      }]
+      
+      console.log('Generated ganttData:', ganttData.value)
+    } else {
+      // 如果没有任务，设置默认日期范围
+      const today = new Date().toISOString().split('T')[0]
+      const nextMonth = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      dateRangeList.value = [today, nextMonth]
+      ganttData.value = [{
+        type: 'normal',
+        name: selectedProject.value?.name || '项目任务',
+        schedule: []
+      }]
+    }
+    
+    // 保持原有的ganttTasks格式（用于其他可能的用途）
+    ganttTasks.value = tasks.map(task => ({
+      id: task.id.toString(),
+      name: task.name || `任务-${task.id}`,
+      start: task.start_date || new Date().toISOString().split('T')[0],
+      end: task.end_date || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      progress: task.progress || 0,
+      dependencies: task.dependencies || '',
+      custom_class: task.progress >= 100 ? 'completed' : task.progress > 0 ? 'in-progress' : 'not-started'
+    }))
+    
   } catch (error) {
     ElMessage.error('加载项目任务失败')
     console.error('Load project tasks error:', error)
@@ -464,17 +540,55 @@ const resetProjectForm = () => {
   editingProject.value = null
 }
 
+// 甘特图事件处理
+const handleTaskUpdated = (task) => {
+  console.log('任务更新:', task)
+  // 验证task对象结构
+  if (task && task.name) {
+    ElMessage.success(`任务 "${task.name}" 已更新`)
+    // 这里可以调用API更新任务数据
+  } else {
+    console.error('Invalid task object:', task)
+    ElMessage.error('任务数据格式错误')
+  }
+}
 
-
-
-
-
+const handleTaskClicked = (task) => {
+  console.log('任务点击:', task)
+  // 验证task对象结构
+  if (task && task.name) {
+    ElMessage.info(`点击了任务: ${task.name}`)
+    // 可以在这里添加更多点击处理逻辑
+  } else {
+    console.error('Invalid task object:', task)
+    ElMessage.error('任务数据格式错误')
+  }
+}
 
 const refreshGantt = () => {
   if (selectedProject.value) {
     loadProjectTasks(selectedProject.value.id)
     ElMessage.success('甘特图数据已刷新')
   }
+}
+
+// 甘特图缩放控制方法
+const zoomIn = () => {
+  zoomLevel.value = Math.min(zoomLevel.value + 0.2, 3)
+  ganttOptions.value.columnWidth = Math.round(60 * zoomLevel.value)
+  ElMessage.info(`缩放级别: ${Math.round(zoomLevel.value * 100)}%`)
+}
+
+const zoomOut = () => {
+  zoomLevel.value = Math.max(zoomLevel.value - 0.2, 0.5)
+  ganttOptions.value.columnWidth = Math.round(60 * zoomLevel.value)
+  ElMessage.info(`缩放级别: ${Math.round(zoomLevel.value * 100)}%`)
+}
+
+const fitToScreen = () => {
+  zoomLevel.value = 1
+  ganttOptions.value.columnWidth = 60
+  ElMessage.success('已重置为100%缩放')
 }
 
 // 点击其他地方隐藏右键菜单
