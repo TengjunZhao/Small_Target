@@ -1,122 +1,81 @@
-/* 全局样式重置和基础样式 */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+/* src/assets/main.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-  line-height: 1.6;
-  color: #333;
-  background-color: #f8f9fa;
-}
-
-/* 容器样式 */
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px;
-}
-
-/* 按钮通用样式 */
-.btn {
-  display: inline-block;
-  padding: 12px 24px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  text-decoration: none;
-  text-align: center;
-  transition: all 0.3s ease;
-  font-size: 1rem;
-  font-weight: 500;
-}
-
-.btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.btn-primary {
-  background-color: #3498db;
-  color: white;
-}
-
-.btn-primary:hover {
-  background-color: #2980b9;
-}
-
-.btn-success {
-  background-color: #27ae60;
-  color: white;
-}
-
-.btn-success:hover {
-  background-color: #219653;
-}
-
-.btn-danger {
-  background-color: #e74c3c;
-  color: white;
-}
-
-.btn-danger:hover {
-  background-color: #c0392b;
-}
-
-/* 卡片样式 */
-.card {
-  background: white;
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-  margin-bottom: 20px;
-}
-
-/* 文本样式 */
-.text-center {
-  text-align: center;
-}
-
-.text-large {
-  font-size: 1.5rem;
-  font-weight: 600;
-}
-
-.text-xl {
-  font-size: 2rem;
-  font-weight: 700;
-}
-
-/* 响应式设计 */
-@media (max-width: 768px) {
-  .container {
-    padding: 15px;
+/* 全局样式重置和基础样式 - 放入 base 层，优先级贴合 Tailwind 规范 */
+@layer base {
+  * {
+    @apply m-0 p-0 box-border;
   }
-  
+
+  body {
+    @apply font-sans leading-[1.6] text-gray-800 bg-gray-50;
+    /* 对应原字体：-apple-system, BlinkMacSystemFont 等，Tailwind 原生 font-sans 已包含 */
+  }
+}
+
+/* 自定义组件类 - 放入 components 层，可直接作为类名使用 */
+@layer components {
+  /* 容器样式 */
+  .container {
+    @apply max-w-[1200px] mx-auto px-5 md:px-5 lg:px-5 xl:px-5;
+    /* 响应式 padding 后续通过 Tailwind 前缀覆盖，替代原生媒体查询 */
+  }
+
+  /* 按钮通用样式 */
   .btn {
-    padding: 10px 20px;
-    font-size: 0.9rem;
+    @apply inline-block px-6 py-3 border-0 rounded-md cursor-pointer no-underline text-center transition-all duration-300 text-base font-medium hover:-translate-y-1 hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none;
   }
-  
+
+  .btn-primary {
+    @apply bg-blue-500 text-white hover:bg-blue-600;
+  }
+
+  .btn-success {
+    @apply bg-green-600 text-white hover:bg-green-700;
+  }
+
+  .btn-danger {
+    @apply bg-red-500 text-white hover:bg-red-600;
+  }
+
+  /* 卡片样式 */
+  .card {
+    @apply bg-white rounded-xl p-6 shadow-md mb-5;
+  }
+
+  /* 文本样式（仅补充 Tailwind 未覆盖的自定义样式） */
+  .text-large {
+    @apply text-xl font-semibold;
+  }
+
   .text-xl {
-    font-size: 1.5rem;
+    @apply text-2xl font-bold;
   }
 }
 
-@media (max-width: 480px) {
-  .container {
-    padding: 10px;
+/* 响应式补充 - 用 Tailwind 响应式前缀替代原生媒体查询，更贴合生态 */
+@layer utilities {
+  /* 小屏幕（<768px，对应 Tailwind md: 前缀以下） */
+  .sm\:container {
+    @apply px-4;
   }
-  
-  .card {
-    padding: 16px;
+  .sm\:btn {
+    @apply px-5 py-2.5 text-sm;
+  }
+  .sm\:text-xl {
+    @apply text-xl;
+  }
+
+  /* 超小屏幕（<480px，对应 Tailwind sm: 前缀以下） */
+  .xs\:container {
+    @apply px-2.5;
+  }
+  .xs\:card {
+    @apply p-4;
   }
 }
+
+/* 可选：自定义响应式断点（如需严格匹配原 480/768 断点，可在 tailwind.config.js 扩展） */
+/* 注：Tailwind 原生断点：sm:640px, md:768px, lg:1024px, xl:1280px，基本匹配原需求 */
