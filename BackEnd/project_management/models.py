@@ -77,114 +77,114 @@ class TaskDependency(models.Model):
         return f"{self.depends_on.name} -> {self.task.name}"
 
 # Demo数据创建函数
-def create_demo_data():
-    """创建演示数据"""
-    from django.contrib.auth.models import User
-    from datetime import date, timedelta
-    
-    # 创建用户
-    user, created = User.objects.get_or_create(username='demo_user')
-    if created:
-        user.set_password('demo123')
-        user.save()
-    
-    # 创建项目
-    project, created = Project.objects.get_or_create(
-        name='网站开发项目',
-        defaults={
-            'description': '开发一个企业官网系统',
-            'start_date': date.today(),
-            'end_date': date.today() + timedelta(days=60),
-            'owner': user
-        }
-    )
-    
-    if created:
-        # 创建主任务
-        design_task = Task.objects.create(
-            project=project,
-            name='UI设计',
-            description='完成网站整体UI设计',
-            start_date=date.today(),
-            end_date=date.today() + timedelta(days=15),
-            duration=15,
-            progress=60,
-            priority=3
-        )
-        
-        frontend_task = Task.objects.create(
-            project=project,
-            name='前端开发',
-            description='实现网站前端页面',
-            start_date=date.today() + timedelta(days=10),
-            end_date=date.today() + timedelta(days=35),
-            duration=25,
-            progress=30,
-            priority=3
-        )
-        
-        backend_task = Task.objects.create(
-            project=project,
-            name='后端开发',
-            description='开发网站后台API',
-            start_date=date.today() + timedelta(days=15),
-            end_date=date.today() + timedelta(days=45),
-            duration=30,
-            progress=10,
-            priority=3
-        )
-        
-        testing_task = Task.objects.create(
-            project=project,
-            name='系统测试',
-            description='进行全面测试',
-            start_date=date.today() + timedelta(days=40),
-            end_date=date.today() + timedelta(days=55),
-            duration=15,
-            progress=0,
-            priority=2
-        )
-        
-        deploy_task = Task.objects.create(
-            project=project,
-            name='部署上线',
-            description='部署到生产环境',
-            start_date=date.today() + timedelta(days=55),
-            end_date=date.today() + timedelta(days=60),
-            duration=5,
-            progress=0,
-            priority=1
-        )
-        
-        # 创建子任务
-        homepage_design = Task.objects.create(
-            project=project,
-            name='首页设计',
-            description='设计网站首页',
-            start_date=date.today(),
-            end_date=date.today() + timedelta(days=5),
-            duration=5,
-            progress=100,
-            parent=design_task,
-            priority=2
-        )
-        
-        innerpage_design = Task.objects.create(
-            project=project,
-            name='内页设计',
-            description='设计网站内页模板',
-            start_date=date.today() + timedelta(days=5),
-            end_date=date.today() + timedelta(days=15),
-            duration=10,
-            progress=40,
-            parent=design_task,
-            priority=2
-        )
-        
-        # 创建依赖关系
-        TaskDependency.objects.create(task=frontend_task, depends_on=design_task, dependency_type='FS')
-        TaskDependency.objects.create(task=testing_task, depends_on=frontend_task, dependency_type='FS')
-        TaskDependency.objects.create(task=testing_task, depends_on=backend_task, dependency_type='FS')
-        TaskDependency.objects.create(task=deploy_task, depends_on=testing_task, dependency_type='FS')
-    
-    return project
+# def create_demo_data():
+#     """创建演示数据"""
+#     from django.contrib.auth.models import User
+#     from datetime import date, timedelta
+#
+#     # 创建用户
+#     user, created = User.objects.get_or_create(username='demo_user')
+#     if created:
+#         user.set_password('demo123')
+#         user.save()
+#
+#     # 创建项目
+#     project, created = Project.objects.get_or_create(
+#         name='网站开发项目',
+#         defaults={
+#             'description': '开发一个企业官网系统',
+#             'start_date': date.today(),
+#             'end_date': date.today() + timedelta(days=60),
+#             'owner': user
+#         }
+#     )
+#
+#     if created:
+#         # 创建主任务
+#         design_task = Task.objects.create(
+#             project=project,
+#             name='UI设计',
+#             description='完成网站整体UI设计',
+#             start_date=date.today(),
+#             end_date=date.today() + timedelta(days=15),
+#             duration=15,
+#             progress=60,
+#             priority=3
+#         )
+#
+#         frontend_task = Task.objects.create(
+#             project=project,
+#             name='前端开发',
+#             description='实现网站前端页面',
+#             start_date=date.today() + timedelta(days=10),
+#             end_date=date.today() + timedelta(days=35),
+#             duration=25,
+#             progress=30,
+#             priority=3
+#         )
+#
+#         backend_task = Task.objects.create(
+#             project=project,
+#             name='后端开发',
+#             description='开发网站后台API',
+#             start_date=date.today() + timedelta(days=15),
+#             end_date=date.today() + timedelta(days=45),
+#             duration=30,
+#             progress=10,
+#             priority=3
+#         )
+#
+#         testing_task = Task.objects.create(
+#             project=project,
+#             name='系统测试',
+#             description='进行全面测试',
+#             start_date=date.today() + timedelta(days=40),
+#             end_date=date.today() + timedelta(days=55),
+#             duration=15,
+#             progress=0,
+#             priority=2
+#         )
+#
+#         deploy_task = Task.objects.create(
+#             project=project,
+#             name='部署上线',
+#             description='部署到生产环境',
+#             start_date=date.today() + timedelta(days=55),
+#             end_date=date.today() + timedelta(days=60),
+#             duration=5,
+#             progress=0,
+#             priority=1
+#         )
+#
+#         # 创建子任务
+#         homepage_design = Task.objects.create(
+#             project=project,
+#             name='首页设计',
+#             description='设计网站首页',
+#             start_date=date.today(),
+#             end_date=date.today() + timedelta(days=5),
+#             duration=5,
+#             progress=100,
+#             parent=design_task,
+#             priority=2
+#         )
+#
+#         innerpage_design = Task.objects.create(
+#             project=project,
+#             name='内页设计',
+#             description='设计网站内页模板',
+#             start_date=date.today() + timedelta(days=5),
+#             end_date=date.today() + timedelta(days=15),
+#             duration=10,
+#             progress=40,
+#             parent=design_task,
+#             priority=2
+#         )
+#
+#         # 创建依赖关系
+#         TaskDependency.objects.create(task=frontend_task, depends_on=design_task, dependency_type='FS')
+#         TaskDependency.objects.create(task=testing_task, depends_on=frontend_task, dependency_type='FS')
+#         TaskDependency.objects.create(task=testing_task, depends_on=backend_task, dependency_type='FS')
+#         TaskDependency.objects.create(task=deploy_task, depends_on=testing_task, dependency_type='FS')
+#
+#     return project

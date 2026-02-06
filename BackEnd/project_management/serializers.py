@@ -4,6 +4,7 @@ from .models import Project, Task, TaskDependency
 class TaskSerializer(serializers.ModelSerializer):
     status = serializers.ReadOnlyField()
     is_completed = serializers.ReadOnlyField()
+    parent_id = serializers.PrimaryKeyRelatedField(source='parent', read_only=True)
     
     class Meta:
         model = Task
@@ -30,20 +31,27 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
         fields = '__all__'
     
     def get_tasks(self, obj):
-        # 获取根任务（没有父任务的任务）
-        root_tasks = obj.tasks.filter(parent=None)
-        return self._serialize_task_tree(root_tasks)
-    
-    def _serialize_task_tree(self, tasks):
-        serializer = TaskSerializer(tasks, many=True)
+        # 获取所有任务
+        all_tasks = obj.tasks.all()
+        # 构建任务字典以便快速查找
+        task_dict = {task.id: task for task in all_tasks}
+        
+        # 序列化所有任务
+        serializer = TaskSerializer(all_tasks, many=True)
         task_data = serializer.data
         
-        # 为每个任务添加子任务
-        for i, task in enumerate(tasks):
-            children = task.children.all()
-            if children.exists():
-                task_data[i]['children'] = self._serialize_task_tree(children)
-            else:
-                task_data[i]['children'] = []
+        # 为每个任务添加子任务列表
+        task_map = {task['id']: task for task in task_data}
         
-        return task_data
+        for task in task_data:
+            task['children'] = []
+            # 查找当前任务的所有子任务
+            for child_task in all_tasks:
+                if child_task.parent_id == task['id']:
+                    child_data = TaskSerializer(child_task).data
+                    child_data['children'] = []
+                    task['children'].append(child_data)
+        
+        # 只返回根任务（没有父任务的任务）
+        root_tasks = [task for task in task_data if not task['parent_id']]
+        return root_tasks

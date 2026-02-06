@@ -89,14 +89,58 @@
                 >
                   <!-- 自定义树形节点内容 -->
                   <template #default="{ node, data }">
-                    <div class="flex items-center justify-between w-full">
-                      <span class="flex items-center">
-                        <el-tag v-if="data.progress === 100" type="success" size="small" class="mr-2">已完成</el-tag>
-                        <el-tag v-else-if="data.progress > 0" type="warning" size="small" class="mr-2">进行中</el-tag>
-                        <el-tag v-else type="info" size="small" class="mr-2">未开始</el-tag>
-                        {{ node.label }}
-                      </span>
-                      <span class="text-sm text-gray-500">进度：{{ data.progress }}%</span>
+                    <div class="flex items-center justify-between w-full py-1">
+                      <div class="flex items-center flex-1 min-w-0">
+                        <!-- 状态标签 -->
+                        <el-tag 
+                          :type="data.status === '已完成' ? 'success' : 
+                                data.status === '进行中' ? 'warning' : 'info'" 
+                          size="small" 
+                          class="mr-2 flex-shrink-0"
+                        >
+                          {{ data.status }}
+                        </el-tag>
+                        
+                        <!-- 任务名称 -->
+                        <span class="font-medium truncate mr-2">{{ node.label }}</span>
+                        
+                        <!-- 优先级标签 -->
+                        <el-tag 
+                          v-if="data.priority"
+                          :type="data.priority === 3 ? 'danger' : 
+                                data.priority === 2 ? 'warning' : 'info'" 
+                          size="small" 
+                          effect="plain"
+                          class="mr-2 flex-shrink-0"
+                        >
+                          {{ data.priority === 3 ? '高' : data.priority === 2 ? '中' : '低' }}优先级
+                        </el-tag>
+                        
+                        <!-- 任务描述（如果存在且较短） -->
+                        <span 
+                          v-if="data.description && data.description.length <= 30" 
+                          class="text-gray-500 text-sm truncate hidden sm:block"
+                          :title="data.description"
+                        >
+                          {{ data.description }}
+                        </span>
+                      </div>
+                      
+                      <!-- 右侧信息 -->
+                      <div class="flex items-center space-x-3 flex-shrink-0">
+                        <!-- 进度 -->
+                        <span class="text-sm text-gray-600 whitespace-nowrap">
+                          进度：{{ data.progress }}%
+                        </span>
+                        
+                        <!-- 时间信息 -->
+                        <span 
+                          v-if="data.start_date && data.end_date"
+                          class="text-xs text-gray-400 hidden md:block"
+                        >
+                          {{ data.start_date }} 至 {{ data.end_date }}
+                        </span>
+                      </div>
                     </div>
                   </template>
                 </el-tree>
@@ -171,69 +215,17 @@ const projectRules = {
 const ganttRef = ref(null)
 let ganttInstance = null
 
-// 模拟甘特图数据
-const ganttData = [
-  {
-    id: 'task1',
-    name: '项目启动',
-    start: '2026-02-01',
-    end: '2026-02-05',
-    progress: 100,
-    custom_class: 'bg-green-500'
-  },
-  {
-    id: 'task2',
-    name: '需求开发',
-    start: '2026-02-06',
-    end: '2026-02-20',
-    progress: 60
-  },
-  {
-    id: 'task3',
-    name: '测试上线',
-    start: '2026-02-21',
-    end: '2026-03-01',
-    progress: 0
-  }
-]
+// 新增：甘特图数据状态
+const ganttData = ref([])
 
 // 新增：任务分解树数据（和甘特图数据联动）
-const taskTreeData = ref([
-  {
-    id: 'task1',
-    label: '项目启动',
-    progress: 100,
-    children: [
-      { id: 'task1-1', label: '需求调研', progress: 100 },
-      { id: 'task1-2', label: '立项评审', progress: 100 }
-    ]
-  },
-  {
-    id: 'task2',
-    label: '需求开发',
-    progress: 60,
-    children: [
-      { id: 'task2-1', label: '接口开发', progress: 80 },
-      { id: 'task2-2', label: '页面开发', progress: 50 },
-      { id: 'task2-3', label: '逻辑开发', progress: 40 }
-    ]
-  },
-  {
-    id: 'task3',
-    label: '测试上线',
-    progress: 0,
-    children: [
-      { id: 'task3-1', label: '功能测试', progress: 0 },
-      { id: 'task3-2', label: '压力测试', progress: 0 },
-      { id: 'task3-3', label: '生产部署', progress: 0 }
-    ]
-  }
-])
+const taskTreeData = ref([])
 
 // 新增：树形组件配置
 const treeProps = ref({
   label: 'label',
-  children: 'children'
+  children: 'children',
+  isLeaf: (data) => !data.children || data.children.length === 0
 })
 
 // API基础URL
@@ -276,8 +268,13 @@ const loadProjects = async () => {
 }
 
 const selectProject = async (project) => {
+  // 如果点击的是已选中的项目，则不重复加载
+  if (selectedProject.value?.id === project.id) {
+    return
+  }
+
   selectedProject.value = project
-  activeTab.value = 'gantt' // 选中项目默认显示甘特图
+  activeTab.value = 'gantt'
 
   await nextTick()
 
@@ -290,15 +287,31 @@ const selectProject = async (project) => {
     }
   }
 
-  // 检查DOM元素是否存在
   if (!ganttRef.value) {
     ElMessage.error('甘特图容器未找到')
     return
   }
 
-  // 初始化甘特图
+  // 从后端获取甘特图数据
   try {
-    ganttInstance = new Gantt(ganttRef.value, ganttData, {
+    const response = await axios.get(`${API_BASE}/projects/projects/${project.id}/gantt_data/`)
+    const backendGanttData = response.data
+
+    // 转换后端数据为frappe-gantt格式
+    const formattedGanttData = backendGanttData.map(task => ({
+      id: task.id.toString(),
+      name: task.name,
+      start: task.start_date,
+      end: task.end_date,
+      progress: task.progress || 0,
+      custom_class: task.status === 'completed' ? 'bg-green-500' :
+                  task.progress > 0 ? 'bg-yellow-500' : 'bg-blue-500'
+    }))
+
+    ganttData.value = formattedGanttData
+
+    // 初始化甘特图
+    ganttInstance = new Gantt(ganttRef.value, ganttData.value, {
       header_height: 50,
       column_width: 60,
       step: 24,
@@ -320,9 +333,62 @@ const selectProject = async (project) => {
       }
     })
     ElMessage.success(`已加载${project.name}的甘特图`)
+
+    // 同时加载任务树数据
+    await loadTaskTreeData(project.id)
   } catch (err) {
     console.error('甘特图初始化失败：', err)
     ElMessage.error('甘特图初始化失败')
+    ganttData.value = []
+    try {
+      ganttInstance = new Gantt(ganttRef.value, [], { /* 空配置 */ })
+    } catch (e) {}
+  }
+}
+
+// 新增：加载任务树数据
+const loadTaskTreeData = async (projectId) => {
+  try {
+    const response = await axios.get(`${API_BASE}/projects/projects/${projectId}/`)
+    // 后端已经返回了完整的树形结构，直接使用
+    const treeData = response.data.tasks || []
+    
+    // 直接赋值，因为后端已经构建好了树形结构
+    taskTreeData.value = treeData
+    
+    // 强制触发响应式更新
+    await nextTick()
+    taskTreeData.value = [...taskTreeData.value]
+    
+    // 调试信息
+    console.log('从后端获取的任务树数据:', taskTreeData.value)
+    console.log('根节点数量:', taskTreeData.value.length)
+    
+    // 验证数据结构
+    taskTreeData.value.forEach((node, index) => {
+      console.log(`根节点 ${index}:`, {
+        id: node.id,
+        label: node.label,
+        childrenCount: node.children ? node.children.length : 0,
+        hasChildren: !!(node.children && node.children.length > 0)
+      })
+      
+      // 如果有子节点，也打印子节点信息
+      if (node.children && node.children.length > 0) {
+        node.children.forEach((child, childIndex) => {
+          console.log(`  子节点 ${childIndex}:`, {
+            id: child.id,
+            label: child.label,
+            parent_id: child.parent_id,
+            childrenCount: child.children ? child.children.length : 0
+          })
+        })
+      }
+    })
+    
+  } catch (error) {
+    console.error('加载任务树数据失败：', error)
+    taskTreeData.value = []
   }
 }
 

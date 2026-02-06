@@ -2,7 +2,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
-from .models import Project, Task, TaskDependency, create_demo_data
+from .models import Project, Task, TaskDependency
 from .serializers import ProjectSerializer, TaskSerializer, TaskDependencySerializer, ProjectDetailSerializer
 
 class ProjectViewSet(viewsets.ModelViewSet):
@@ -15,15 +15,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
             return ProjectDetailSerializer
         return super().get_serializer_class()
     
-    @action(detail=False, methods=['post'])
-    def create_demo(self, request):
-        """创建演示数据"""
-        try:
-            project = create_demo_data()
-            serializer = self.get_serializer(project)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    # @action(detail=False, methods=['post'])
+    # def create_demo(self, request):
+    #     """创建演示数据"""
+    #     try:
+    #         project = create_demo_data()
+    #         serializer = self.get_serializer(project)
+    #         return Response(serializer.data, status=status.HTTP_201_CREATED)
+    #     except Exception as e:
+    #         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
     
     @action(detail=True, methods=['get'])
     def gantt_data(self, request, pk=None):
