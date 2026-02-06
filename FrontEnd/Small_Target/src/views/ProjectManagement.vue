@@ -17,9 +17,6 @@
               <el-button type="primary" @click="showCreateDialog = true">
                 新建项目
               </el-button>
-              <el-button type="success" @click="loadDemoData">
-                加载演示数据
-              </el-button>
             </div>
           </template>
 
@@ -78,6 +75,16 @@
             <!-- 任务分解树选项卡 -->
             <el-tab-pane label="任务分解树" name="taskTree">
               <div class="w-full h-[600px] p-4 bg-white rounded-lg shadow-md overflow-auto">
+                <!-- 任务操作按钮 -->
+                <div class="mb-4 flex gap-2">
+                  <el-button type="primary" @click="showTaskDialog = true; editingTask = null; currentParentTask = null; resetTaskForm()">
+                    新增任务
+                  </el-button>
+                  <el-button @click="refreshTaskTree">
+                    刷新任务树
+                  </el-button>
+                </div>
+                
                 <!-- 任务树形组件 -->
                 <el-tree
                   :data="taskTreeData"
@@ -140,6 +147,34 @@
                         >
                           {{ data.start_date }} 至 {{ data.end_date }}
                         </span>
+                        
+                        <!-- 操作按钮 -->
+                        <div class="flex items-center space-x-1 flex-shrink-0">
+                          <el-button 
+                            type="primary" 
+                            size="small" 
+                            @click.stop="editTask(data)"
+                            title="编辑任务"
+                          >
+                            编辑
+                          </el-button>
+                          <el-button 
+                            type="success" 
+                            size="small" 
+                            @click.stop="addChildTask(data)"
+                            title="添加子任务"
+                          >
+                            添加子任务
+                          </el-button>
+                          <el-button 
+                            type="danger" 
+                            size="small" 
+                            @click.stop="deleteTask(data)"
+                            title="删除任务"
+                          >
+                            删除
+                          </el-button>
+                        </div>
                       </div>
                     </div>
                   </template>
@@ -171,11 +206,59 @@
         <el-form-item label="结束日期" prop="end_date">
           <el-date-picker v-model="projectForm.end_date" type="date" placeholder="选择结束日期" />
         </el-form-item>
+        <el-form-item label="项目负责人" prop="owner">
+          <el-select v-model="projectForm.owner" placeholder="请选择项目负责人">
+            <el-option label="管理员" :value="1" />
+            <el-option label="用户1" :value="2" />
+            <el-option label="用户2" :value="3" />
+          </el-select>
+        </el-form-item>
       </el-form>
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="showCreateDialog = false">取消</el-button>
           <el-button type="primary" @click="saveProject">保存</el-button>
+        </span>
+      </template>
+    </el-dialog>
+    
+    <!-- 任务对话框 -->
+    <el-dialog 
+      v-model="showTaskDialog" 
+      :title="editingTask ? '编辑任务' : (currentParentTask ? '添加子任务' : '新增任务')" 
+      width="500px"
+    >
+      <el-form :model="taskForm" :rules="taskRules" ref="taskFormRef" label-width="100px">
+        <el-form-item label="任务名称" prop="name">
+          <el-input v-model="taskForm.name" />
+        </el-form-item>
+        <el-form-item label="描述" prop="description">
+          <el-input v-model="taskForm.description" type="textarea" />
+        </el-form-item>
+        <el-form-item label="开始日期" prop="start_date">
+          <el-date-picker v-model="taskForm.start_date" type="date" placeholder="选择开始日期" />
+        </el-form-item>
+        <el-form-item label="结束日期" prop="end_date">
+          <el-date-picker v-model="taskForm.end_date" type="date" placeholder="选择结束日期" />
+        </el-form-item>
+        <el-form-item label="持续天数" prop="duration">
+          <el-input-number v-model="taskForm.duration" :min="1" />
+        </el-form-item>
+        <el-form-item label="进度" prop="progress">
+          <el-slider v-model="taskForm.progress" :max="100" show-input />
+        </el-form-item>
+        <el-form-item label="优先级" prop="priority">
+          <el-select v-model="taskForm.priority">
+            <el-option label="低" :value="1" />
+            <el-option label="中" :value="2" />
+            <el-option label="高" :value="3" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="showTaskDialog = false">取消</el-button>
+          <el-button type="primary" @click="saveTask">保存</el-button>
         </span>
       </template>
     </el-dialog>
@@ -197,18 +280,52 @@ const editingProject = ref(null)
 // 新增：选项卡激活状态（默认显示甘特图）
 const activeTab = ref('gantt')
 
+// 任务管理状态
+const showTaskDialog = ref(false)
+const editingTask = ref(null)
+const currentParentTask = ref(null)
+const taskFormRef = ref(null)
+
 // 表单相关
 const projectForm = reactive({
   name: '',
   description: '',
   start_date: '',
-  end_date: ''
+  end_date: '',
+  owner: 1  // 默认用户ID，实际应用中应该从认证系统获取
 })
 
 const projectRules = {
   name: [{ required: true, message: '请输入项目名称', trigger: 'blur' }],
   start_date: [{ required: true, message: '请选择开始日期', trigger: 'change' }],
-  end_date: [{ required: true, message: '请选择结束日期', trigger: 'change' }]
+  end_date: [{ required: true, message: '请选择结束日期', trigger: 'change' }],
+  owner: [{ required: true, message: '请选择项目负责人', trigger: 'change' }]
+}
+
+// 任务表单
+const taskForm = reactive({
+  id: null,
+  name: '',
+  description: '',
+  start_date: '',
+  end_date: '',
+  duration: 1,
+  progress: 0,
+  priority: 2,
+  parent: null
+})
+
+// 任务表单验证规则
+const taskRules = {
+  name: [
+    { required: true, message: '请输入任务名称', trigger: 'blur' }
+  ],
+  start_date: [
+    { required: true, message: '请选择开始日期', trigger: 'change' }
+  ],
+  end_date: [
+    { required: true, message: '请选择结束日期', trigger: 'change' }
+  ]
 }
 
 // 甘特图核心配置
@@ -426,32 +543,70 @@ const changeView = (mode) => {
   }
 }
 
-const loadDemoData = async () => {
-  try {
-    await axios.post(`${API_BASE}/projects/projects/create_demo/`)
-    ElMessage.success('演示数据加载成功')
-    loadProjects()
-  } catch (error) {
-    ElMessage.error('加载演示数据失败')
-    console.error(error)
-  }
-}
+
 
 const saveProject = async () => {
   try {
-    if (editingProject.value) {
-      await axios.put(`${API_BASE}/projects/projects/${editingProject.value.id}/`, projectForm)
-      ElMessage.success('项目更新成功')
-    } else {
-      await axios.post(`${API_BASE}/projects/projects/`, projectForm)
-      ElMessage.success('项目创建成功')
+    // 验证表单数据
+    console.log('提交的项目数据:', projectForm);
+    
+    // 确保所有必需字段都有值
+    const projectData = {
+      name: projectForm.name.trim(),
+      description: projectForm.description.trim() || '',
+      start_date: projectForm.start_date,
+      end_date: projectForm.end_date,
+      owner: projectForm.owner
+    };
+    
+    // 验证数据完整性
+    if (!projectData.name) {
+      ElMessage.error('项目名称不能为空');
+      return;
     }
-    showCreateDialog.value = false
-    loadProjects()
-    resetProjectForm()
+    
+    if (!projectData.start_date || !projectData.end_date) {
+      ElMessage.error('请填写完整的日期信息');
+      return;
+    }
+    
+    if (!projectData.owner) {
+      ElMessage.error('请选择项目负责人');
+      return;
+    }
+    
+    console.log('发送的项目数据:', projectData);
+    
+    if (editingProject.value) {
+      const response = await axios.put(`${API_BASE}/projects/projects/${editingProject.value.id}/`, projectData);
+      console.log('项目更新响应:', response.data);
+      ElMessage.success('项目更新成功');
+    } else {
+      const response = await axios.post(`${API_BASE}/projects/projects/`, projectData);
+      console.log('项目创建响应:', response.data);
+      ElMessage.success('项目创建成功');
+    }
+    
+    showCreateDialog.value = false;
+    await loadProjects();
+    resetProjectForm();
   } catch (error) {
-    ElMessage.error(editingProject.value ? '项目更新失败' : '项目创建失败')
-    console.error(error)
+    const errorMessage = editingProject.value ? '项目更新失败' : '项目创建失败';
+    ElMessage.error(errorMessage);
+    console.error('项目保存错误:', error.response?.data || error.message);
+    
+    // 显示具体的错误信息
+    if (error.response?.data) {
+      const errorDetails = error.response.data;
+      if (typeof errorDetails === 'object') {
+        Object.keys(errorDetails).forEach(key => {
+          const fieldErrors = errorDetails[key];
+          if (Array.isArray(fieldErrors)) {
+            ElMessage.error(`${key}: ${fieldErrors.join(', ')}`);
+          }
+        });
+      }
+    }
   }
 }
 
@@ -496,9 +651,185 @@ const resetProjectForm = () => {
     name: '',
     description: '',
     start_date: '',
-    end_date: ''
+    end_date: '',
+    owner: 1
   })
   editingProject.value = null
+}
+
+// 任务管理函数
+const resetTaskForm = () => {
+  Object.assign(taskForm, {
+    name: '',
+    description: '',
+    start_date: '',
+    end_date: '',
+    duration: 1,
+    progress: 0,
+    priority: 2,
+    parent: currentParentTask.value ? currentParentTask.value.id : null
+  })
+  editingTask.value = null
+}
+
+const refreshTaskTree = async () => {
+  if (selectedProject.value) {
+    await loadTaskTreeData(selectedProject.value.id)
+    ElMessage.success('任务树已刷新')
+  }
+}
+
+const editTask = (task) => {
+  console.log('编辑任务:', task);
+  editingTask.value = task;
+  currentParentTask.value = null;
+  
+  // 填充表单数据
+  Object.assign(taskForm, {
+    name: task.label || task.name || '',
+    description: task.description || '',
+    start_date: task.start_date || '',
+    end_date: task.end_date || '',
+    duration: task.duration || 1,
+    progress: task.progress || 0,
+    priority: task.priority || 2,
+    parent: task.parent_id || null
+  });
+  
+  console.log('填充后的表单数据:', taskForm);
+  showTaskDialog.value = true;
+  
+  // 添加一个小延迟确保对话框完全渲染后再设置焦点
+  setTimeout(() => {
+    const nameInput = document.querySelector('.el-dialog input[placeholder="任务名称"]');
+    if (nameInput) {
+      nameInput.focus();
+    }
+  }, 100);
+}
+
+const addChildTask = (parentTask) => {
+  console.log('添加子任务到:', parentTask);
+  editingTask.value = null;
+  currentParentTask.value = parentTask;
+  resetTaskForm();
+  showTaskDialog.value = true;
+  
+  // 设置父任务ID
+  taskForm.parent = parentTask.id;
+  
+  // 添加延迟确保对话框渲染完成
+  setTimeout(() => {
+    const nameInput = document.querySelector('.el-dialog input[placeholder="任务名称"]');
+    if (nameInput) {
+      nameInput.focus();
+    }
+  }, 100);
+}
+
+const deleteTask = async (task) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除任务 "${task.label || task.name}" 吗？`, 
+      '确认删除', 
+      { type: 'warning' }
+    )
+    
+    await axios.delete(`${API_BASE}/projects/tasks/${task.id}/`)
+    ElMessage.success('任务删除成功')
+    await refreshTaskTree()
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('任务删除失败')
+      console.error(error)
+    }
+  }
+}
+
+const saveTask = async () => {
+  try {
+    // 验证表单数据
+    console.log('提交的任务表单:', taskForm);
+    
+    // 确保必需字段都有值
+    const formatDate = (date) => {
+      if (!date) return null;
+      const d = new Date(date);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    
+    const taskData = {
+      name: taskForm.name.trim(),
+      description: taskForm.description.trim() || '',
+      start_date: formatDate(taskForm.start_date),
+      end_date: formatDate(taskForm.end_date),
+      duration: taskForm.duration || 1,
+      progress: taskForm.progress || 0,
+      priority: taskForm.priority || 2,
+      project: selectedProject.value?.id,
+      parent: taskForm.parent || null
+    };
+    
+    // 验证数据完整性
+    if (!taskData.name) {
+      ElMessage.error('任务名称不能为空');
+      return;
+    }
+    
+    if (!taskData.start_date || !taskData.end_date) {
+      ElMessage.error('请填写完整的日期信息');
+      return;
+    }
+    
+    if (!taskData.project) {
+      ElMessage.error('未选择项目，请先选择一个项目');
+      return;
+    }
+    
+    if (new Date(taskData.start_date) > new Date(taskData.end_date)) {
+      ElMessage.error('开始日期不能晚于结束日期');
+      return;
+    }
+    
+    console.log('发送的任务数据:', taskData);
+    
+    let response;
+    if (editingTask.value) {
+      // 编辑任务
+      response = await axios.put(`${API_BASE}/projects/tasks/${editingTask.value.id}/`, taskData);
+      console.log('任务更新响应:', response.data);
+      ElMessage.success('任务更新成功');
+    } else {
+      // 新增任务
+      response = await axios.post(`${API_BASE}/projects/tasks/`, taskData);
+      console.log('任务创建响应:', response.data);
+      ElMessage.success('任务创建成功');
+    }
+    
+    showTaskDialog.value = false;
+    await refreshTaskTree();
+    resetTaskForm();
+  } catch (error) {
+    const errorMessage = editingTask.value ? '任务更新失败' : '任务创建失败';
+    ElMessage.error(errorMessage);
+    console.error('任务保存错误:', error.response?.data || error.message);
+    
+    // 显示具体的错误信息
+    if (error.response?.data) {
+      const errorDetails = error.response.data;
+      if (typeof errorDetails === 'object') {
+        Object.keys(errorDetails).forEach(key => {
+          const fieldErrors = errorDetails[key];
+          if (Array.isArray(fieldErrors)) {
+            ElMessage.error(`${key}: ${fieldErrors.join(', ')}`);
+          }
+        });
+      }
+    }
+  }
 }
 </script>
 
