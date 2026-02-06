@@ -40,18 +40,35 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
         serializer = TaskSerializer(all_tasks, many=True)
         task_data = serializer.data
         
-        # 为每个任务添加子任务列表
+        # 构建父子关系映射
         task_map = {task['id']: task for task in task_data}
+        children_map = {}
         
+        # 构建子任务映射关系
         for task in task_data:
             task['children'] = []
-            # 查找当前任务的所有子任务
-            for child_task in all_tasks:
-                if child_task.parent_id == task['id']:
-                    child_data = TaskSerializer(child_task).data
-                    child_data['children'] = []
-                    task['children'].append(child_data)
+            parent_id = task['parent_id']
+            if parent_id:
+                if parent_id not in children_map:
+                    children_map[parent_id] = []
+                children_map[parent_id].append(task)
+        
+        # 递归构建完整的树形结构
+        def build_tree_recursive(task_item):
+            task_id = task_item['id']
+            if task_id in children_map:
+                # 为当前任务添加子任务
+                for child_task in children_map[task_id]:
+                    # 递归构建子任务的子树
+                    build_tree_recursive(child_task)
+                    task_item['children'].append(child_task)
+            return task_item
         
         # 只返回根任务（没有父任务的任务）
         root_tasks = [task for task in task_data if not task['parent_id']]
+        
+        # 为每个根任务构建完整的子树
+        for root_task in root_tasks:
+            build_tree_recursive(root_task)
+        
         return root_tasks

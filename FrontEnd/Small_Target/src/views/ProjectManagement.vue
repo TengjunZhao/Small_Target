@@ -76,12 +76,21 @@
             <el-tab-pane label="任务分解树" name="taskTree">
               <div class="w-full h-[600px] p-4 bg-white rounded-lg shadow-md overflow-auto">
                 <!-- 任务操作按钮 -->
-                <div class="mb-4 flex gap-2">
+                <div class="mb-4 flex gap-2 flex-wrap">
                   <el-button type="primary" @click="showTaskDialog = true; editingTask = null; currentParentTask = null; resetTaskForm()">
                     新增任务
                   </el-button>
                   <el-button @click="refreshTaskTree">
                     刷新任务树
+                  </el-button>
+                  <el-button @click="expandAllNodes">
+                    展开全部
+                  </el-button>
+                  <el-button @click="collapseAllNodes">
+                    折叠全部
+                  </el-button>
+                  <el-button @click="console.log('当前展开的节点:', expandedKeys.value)">
+                    查看展开状态
                   </el-button>
                 </div>
                 
@@ -90,9 +99,11 @@
                   :data="taskTreeData"
                   :props="treeProps"
                   node-key="id"
-                  default-expand-all
+                  :default-expanded-keys="expandedKeys"
                   class="w-full h-full"
                   :expand-on-click-node="false"
+                  @node-expand="handleNodeExpand"
+                  @node-collapse="handleNodeCollapse"
                 >
                   <!-- 自定义树形节点内容 -->
                   <template #default="{ node, data }">
@@ -345,6 +356,9 @@ const treeProps = ref({
   isLeaf: (data) => !data.children || data.children.length === 0
 })
 
+// 新增：树形组件展开状态管理（遵循内存中的最佳实践）
+const expandedKeys = ref([])
+
 // API基础URL
 const API_BASE = '/api'
 
@@ -468,7 +482,22 @@ const loadTaskTreeData = async (projectId) => {
   try {
     const response = await axios.get(`${API_BASE}/projects/projects/${projectId}/`)
     // 后端已经返回了完整的树形结构，直接使用
-    const treeData = response.data.tasks || []
+    let treeData = response.data.tasks || []
+    
+    // 数据转换：将后端的 name 字段转换为前端需要的 label 字段
+    const convertTaskData = (tasks) => {
+      return tasks.map(task => {
+        // 创建新对象，保留原有属性
+        const convertedTask = {
+          ...task,
+          label: task.name || task.label || '未命名任务', // 使用name作为label
+          children: task.children ? convertTaskData(task.children) : []
+        }
+        return convertedTask
+      })
+    }
+    
+    treeData = convertTaskData(treeData)
     
     // 直接赋值，因为后端已经构建好了树形结构
     taskTreeData.value = treeData
@@ -481,27 +510,53 @@ const loadTaskTreeData = async (projectId) => {
     console.log('从后端获取的任务树数据:', taskTreeData.value)
     console.log('根节点数量:', taskTreeData.value.length)
     
-    // 验证数据结构
-    taskTreeData.value.forEach((node, index) => {
-      console.log(`根节点 ${index}:`, {
-        id: node.id,
-        label: node.label,
-        childrenCount: node.children ? node.children.length : 0,
-        hasChildren: !!(node.children && node.children.length > 0)
-      })
+    // 计算并显示树的深度
+    const treeDepth = calculateTreeDepth(taskTreeData.value)
+    console.log('任务树最大深度:', treeDepth)
+    
+    // 初始化展开状态 - 展开前两层节点
+    expandedKeys.value = []
+    const collectExpandedKeys = (nodes, maxDepth = 2, currentDepth = 0) => {
+      if (!nodes || currentDepth >= maxDepth) return
       
-      // 如果有子节点，也打印子节点信息
-      if (node.children && node.children.length > 0) {
-        node.children.forEach((child, childIndex) => {
-          console.log(`  子节点 ${childIndex}:`, {
-            id: child.id,
-            label: child.label,
-            parent_id: child.parent_id,
-            childrenCount: child.children ? child.children.length : 0
-          })
-        })
+      for (const node of nodes) {
+        if (currentDepth < maxDepth - 1) {
+          expandedKeys.value.push(node.id)
+        }
+        if (node.children && node.children.length > 0) {
+          collectExpandedKeys(node.children, maxDepth, currentDepth + 1)
+        }
       }
-    })
+    }
+    
+    collectExpandedKeys(taskTreeData.value)
+    console.log('初始展开的节点keys:', expandedKeys.value)
+    
+    // 验证数据结构
+    const validateTreeStructure = (nodes, level = 0, parentId = null) => {
+      if (!nodes) return
+      
+      nodes.forEach((node, index) => {
+        const indent = '  '.repeat(level)
+        console.log(`${indent}节点 [${level}] ${index}:`, {
+          id: node.id,
+          label: node.label,
+          name: node.name,
+          parent_id: node.parent_id,
+          parentIdCheck: node.parent_id === parentId,
+          childrenCount: node.children ? node.children.length : 0,
+          hasChildren: !!(node.children && node.children.length > 0)
+        })
+        
+        // 递归验证子节点
+        if (node.children && node.children.length > 0) {
+          validateTreeStructure(node.children, level + 1, node.id)
+        }
+      })
+    }
+    
+    console.log('=== 任务树结构验证 ===')
+    validateTreeStructure(taskTreeData.value)
     
   } catch (error) {
     console.error('加载任务树数据失败：', error)
@@ -679,6 +734,35 @@ const refreshTaskTree = async () => {
   }
 }
 
+// 新增：树节点展开处理
+const handleNodeExpand = (data, node) => {
+  console.log('节点展开:', data.id, data.label)
+  if (!expandedKeys.value.includes(data.id)) {
+    expandedKeys.value.push(data.id)
+  }
+}
+
+// 新增：树节点折叠处理
+const handleNodeCollapse = (data, node) => {
+  console.log('节点折叠:', data.id, data.label)
+  const index = expandedKeys.value.indexOf(data.id)
+  if (index > -1) {
+    expandedKeys.value.splice(index, 1)
+  }
+}
+
+// 新增：计算树的最大深度（用于调试）
+const calculateTreeDepth = (nodes, currentDepth = 0) => {
+  if (!nodes || nodes.length === 0) return currentDepth
+  
+  let maxDepth = currentDepth
+  for (const node of nodes) {
+    const depth = calculateTreeDepth(node.children, currentDepth + 1)
+    maxDepth = Math.max(maxDepth, depth)
+  }
+  return maxDepth
+}
+
 const editTask = (task) => {
   console.log('编辑任务:', task);
   editingTask.value = task;
@@ -725,6 +809,32 @@ const addChildTask = (parentTask) => {
       nameInput.focus();
     }
   }, 100);
+}
+
+// 新增：手动展开/折叠所有节点的功能
+const expandAllNodes = () => {
+  const collectAllKeys = (nodes) => {
+    const keys = []
+    const traverse = (nodeList) => {
+      if (!nodeList) return
+      nodeList.forEach(node => {
+        keys.push(node.id)
+        if (node.children && node.children.length > 0) {
+          traverse(node.children)
+        }
+      })
+    }
+    traverse(nodes)
+    return keys
+  }
+  
+  expandedKeys.value = collectAllKeys(taskTreeData.value)
+  ElMessage.success('已展开所有节点')
+}
+
+const collapseAllNodes = () => {
+  expandedKeys.value = []
+  ElMessage.success('已折叠所有节点')
 }
 
 const deleteTask = async (task) => {
