@@ -944,7 +944,7 @@ const saveTask = async () => {
   flex: 1;
   margin-top: 15px;
   flex-wrap: wrap; /* 允许换行 */
-  overflow: hidden;
+  overflow: auto;
 }
 
 /* 项目列表区域响应式 */
@@ -972,29 +972,7 @@ const saveTask = async () => {
   flex-direction: column;
   height: 100%; /* 填充main-content高度 */
 }
-/* 修复详情卡片高度适配 */
-:deep(.project-detail-section .el-card) {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-:deep(.project-detail-section .el-card__body) {
-  flex: 1;
-  overflow: hidden; /* 卡片内部溢出隐藏，子容器滚动 */
-  padding: 16px;
-}
 
-/* 选项卡容器 - 填充卡片高度 */
-:deep(.project-detail-section .el-tabs) {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-:deep(.project-detail-section .el-tabs__content) {
-  flex: 1;
-  overflow: hidden; /* 选项卡内容区溢出隐藏 */
-  margin-top: 10px;
-}
 .card-header {
   display: flex;
   justify-content: space-between;
