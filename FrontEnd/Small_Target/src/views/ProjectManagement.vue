@@ -289,6 +289,7 @@
 import { ref, reactive, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete, Refresh, Calendar, ArrowLeft } from '@element-plus/icons-vue'
+import {formatDateForDatabase } from '@/utils/dateUtils.js'
 import axios from 'axios'
 import Gantt from 'frappe-gantt'
 import '../assets/frappe-gantt.css'
@@ -584,8 +585,8 @@ const saveProject = async () => {
     const projectData = {
       name: projectForm.name.trim(),
       description: projectForm.description.trim() || '',
-      start_date: projectForm.start_date,
-      end_date: projectForm.end_date,
+      start_date: formatDateForDatabase(projectForm.start_date),
+      end_date: formatDateForDatabase(projectForm.end_date),
       owner: projectForm.owner
     };
 
@@ -700,7 +701,7 @@ const refreshTaskTree = async () => {
 }
 
 // 新增：树节点展开处理
-const handleNodeExpand = (data, node) => {
+const handleNodeExpand = (data) => {
   console.log('节点展开:', data.id, data.label)
   if (!expandedKeys.value.includes(data.id)) {
     expandedKeys.value.push(data.id)
@@ -708,7 +709,7 @@ const handleNodeExpand = (data, node) => {
 }
 
 // 新增：树节点折叠处理
-const handleNodeCollapse = (data, node) => {
+const handleNodeCollapse = (data) => {
   console.log('节点折叠:', data.id, data.label)
   const index = expandedKeys.value.indexOf(data.id)
   if (index > -1) {
@@ -806,20 +807,11 @@ const deleteTask = async (task) => {
 
 const saveTask = async () => {
   try {
-    const formatDate = (date) => {
-      if (!date) return null;
-      const d = new Date(date);
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    };
-
     const taskData = {
       name: taskForm.name.trim(),
       description: taskForm.description.trim() || '',
-      start_date: formatDate(taskForm.start_date),
-      end_date: formatDate(taskForm.end_date),
+      start_date: formatDateForDatabase(taskForm.start_date),
+      end_date: formatDateForDatabase(taskForm.end_date),
       duration: taskForm.duration || 1,
       progress: taskForm.progress || 0,
       priority: taskForm.priority || 2,
