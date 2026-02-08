@@ -95,14 +95,10 @@
               <div class="task-tree-container">
                 <!-- 任务操作按钮 -->
                 <div class="mb-4 flex gap-2 flex-wrap">
-<<<<<<< Updated upstream
-                  <el-button type="primary" @click="showTaskDialog = true; editingTask = null; currentParentTask = null; resetTaskForm()">
-                    新增任务
-=======
+                  <!-- 冲突解决：保留带图标、size的按钮样式，保持UI统一 -->
                   <el-button type="primary" size="small" @click="showTaskDialog = true; editingTask = null; currentParentTask = null; resetTaskForm()">
                     <el-icon><Plus /></el-icon>
                     <span class="btn-text">新增任务</span>
->>>>>>> Stashed changes
                   </el-button>
                   <el-button size="small" @click="refreshTaskTree">
                     <el-icon><Refresh /></el-icon>
@@ -124,18 +120,12 @@
                   :data="taskTreeData"
                   :props="treeProps"
                   node-key="id"
-<<<<<<< Updated upstream
                   :default-expanded-keys="expandedKeys"
-                  class="w-full h-full"
-                  :expand-on-click-node="false"
-                  @node-expand="handleNodeExpand"
-                  @node-collapse="handleNodeCollapse"
-=======
-                  default-expand-all
                   class="task-tree-content"
                   :expand-on-click-node="false"
                   size="small"
->>>>>>> Stashed changes
+                  @node-expand="handleNodeExpand"
+                  @node-collapse="handleNodeCollapse"
                 >
                   <!-- 自定义树形节点内容 -->
                   <template #default="{ node, data }">
@@ -479,10 +469,10 @@ const selectProject = async (project) => {
 const loadTaskTreeData = async (projectId) => {
   try {
     const response = await axios.get(`${API_BASE}/projects/projects/${projectId}/`)
-<<<<<<< Updated upstream
+    // 冲突解决：保留完整的数据转换和展开状态管理逻辑
     // 后端已经返回了完整的树形结构，直接使用
     let treeData = response.data.tasks || []
-    
+
     // 数据转换：将后端的 name 字段转换为前端需要的 label 字段
     const convertTaskData = (tasks) => {
       return tasks.map(task => {
@@ -495,31 +485,27 @@ const loadTaskTreeData = async (projectId) => {
         return convertedTask
       })
     }
-    
+
     treeData = convertTaskData(treeData)
-    
+
     // 直接赋值，因为后端已经构建好了树形结构
-=======
-    const treeData = response.data.tasks || []
->>>>>>> Stashed changes
     taskTreeData.value = treeData
     await nextTick()
     taskTreeData.value = [...taskTreeData.value]
-<<<<<<< Updated upstream
-    
+
     // 调试信息
     console.log('从后端获取的任务树数据:', taskTreeData.value)
     console.log('根节点数量:', taskTreeData.value.length)
-    
+
     // 计算并显示树的深度
     const treeDepth = calculateTreeDepth(taskTreeData.value)
     console.log('任务树最大深度:', treeDepth)
-    
+
     // 初始化展开状态 - 展开前两层节点
     expandedKeys.value = []
     const collectExpandedKeys = (nodes, maxDepth = 2, currentDepth = 0) => {
       if (!nodes || currentDepth >= maxDepth) return
-      
+
       for (const node of nodes) {
         if (currentDepth < maxDepth - 1) {
           expandedKeys.value.push(node.id)
@@ -529,14 +515,14 @@ const loadTaskTreeData = async (projectId) => {
         }
       }
     }
-    
+
     collectExpandedKeys(taskTreeData.value)
     console.log('初始展开的节点keys:', expandedKeys.value)
-    
+
     // 验证数据结构
     const validateTreeStructure = (nodes, level = 0, parentId = null) => {
       if (!nodes) return
-      
+
       nodes.forEach((node, index) => {
         const indent = '  '.repeat(level)
         console.log(`${indent}节点 [${level}] ${index}:`, {
@@ -548,19 +534,16 @@ const loadTaskTreeData = async (projectId) => {
           childrenCount: node.children ? node.children.length : 0,
           hasChildren: !!(node.children && node.children.length > 0)
         })
-        
+
         // 递归验证子节点
         if (node.children && node.children.length > 0) {
           validateTreeStructure(node.children, level + 1, node.id)
         }
       })
     }
-    
+
     console.log('=== 任务树结构验证 ===')
     validateTreeStructure(taskTreeData.value)
-    
-=======
->>>>>>> Stashed changes
   } catch (error) {
     console.error('加载任务树数据失败：', error)
     taskTreeData.value = []
@@ -736,7 +719,7 @@ const handleNodeCollapse = (data, node) => {
 // 新增：计算树的最大深度（用于调试）
 const calculateTreeDepth = (nodes, currentDepth = 0) => {
   if (!nodes || nodes.length === 0) return currentDepth
-  
+
   let maxDepth = currentDepth
   for (const node of nodes) {
     const depth = calculateTreeDepth(node.children, currentDepth + 1)
@@ -793,7 +776,7 @@ const expandAllNodes = () => {
     traverse(nodes)
     return keys
   }
-  
+
   expandedKeys.value = collectAllKeys(taskTreeData.value)
   ElMessage.success('已展开所有节点')
 }
