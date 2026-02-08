@@ -76,17 +76,20 @@
             <!-- 甘特图选项卡 -->
             <el-tab-pane label="甘特图" name="gantt">
               <div class="gantt-container">
-                <div ref="ganttRef" class="gantt-content"></div>
-                <div class="mt-4 flex gap-2 flex-wrap">
-                  <el-button @click="changeView('Day')" size="small">
-                    <el-icon><Calendar /></el-icon>
-                    <span class="btn-text">日视图</span>
-                  </el-button>
-                  <el-button @click="changeView('Month')" size="small">
-                    <el-icon><Calendar /></el-icon>
-                    <span class="btn-text">月视图</span>
-                  </el-button>
+                <div class="gantt-toolbar">
+                  <span class="gantt-title">项目进度甘特图</span>
+                    <div class="gantt-view-buttons">
+                      <el-button @click="changeView('Day')" size="small">
+                        <el-icon><Calendar /></el-icon>
+                        <span class="btn-text">日视图</span>
+                      </el-button>
+                      <el-button @click="changeView('Month')" size="small">
+                        <el-icon><Calendar /></el-icon>
+                        <span class="btn-text">月视图</span>
+                      </el-button>
+                    </div>
                 </div>
+                <div ref="ganttRef" class="gantt-content"></div>
               </div>
             </el-tab-pane>
 
@@ -932,7 +935,7 @@ const saveTask = async () => {
   display: flex;
   flex-direction: column;
   box-sizing: border-box; /* 防止padding导致溢出 */
-  overflow: auto; /* 允许整体滚动 */
+  overflow: hidden; /* 允许整体滚动 */
 }
 
 .main-content {
@@ -941,6 +944,7 @@ const saveTask = async () => {
   flex: 1;
   margin-top: 15px;
   flex-wrap: wrap; /* 允许换行 */
+  overflow: hidden;
 }
 
 /* 项目列表区域响应式 */
@@ -949,14 +953,48 @@ const saveTask = async () => {
   min-width: 280px; /* 移动端最小宽度 */
   max-width: 100%;
 }
-
+:deep(.project-list-section .el-card) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+:deep(.project-list-section .el-card__body) {
+  flex: 1;
+  overflow: auto; /* 列表内容超出时滚动 */
+  padding: 16px;
+}
 /* 项目详情区域响应式 */
 .project-detail-section {
   flex: 1; /* 移动端和列表等分 */
   min-width: 280px;
   max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  height: 100%; /* 填充main-content高度 */
+}
+/* 修复详情卡片高度适配 */
+:deep(.project-detail-section .el-card) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+:deep(.project-detail-section .el-card__body) {
+  flex: 1;
+  overflow: hidden; /* 卡片内部溢出隐藏，子容器滚动 */
+  padding: 16px;
 }
 
+/* 选项卡容器 - 填充卡片高度 */
+:deep(.project-detail-section .el-tabs) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+:deep(.project-detail-section .el-tabs__content) {
+  flex: 1;
+  overflow: hidden; /* 选项卡内容区溢出隐藏 */
+  margin-top: 10px;
+}
 .card-header {
   display: flex;
   justify-content: space-between;
@@ -966,36 +1004,75 @@ const saveTask = async () => {
 /* 甘特图容器响应式 */
 .gantt-container {
   width: 100%;
-  height: 400px; /* 基础高度 */
-  min-height: 300px;
-  max-height: 600px;
+  display: flex;
+  flex-direction: column;
+  height: 100%; /* 填充选项卡高度 */
   padding: 4px;
   background-color: #fff;
   border-radius: 8px;
   box-shadow: 0 1px 2px #eee;
+  box-sizing: border-box;
+}
+
+.gantt-toolbar {
+  display: flex;
+  justify-content: space-between; /* 标题左，按钮右 */
+  align-items: center;
+  padding: 8px 4px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.gantt-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.gantt-view-buttons {
+  display: flex;
+  gap: 8px; /* 按钮之间的间距 */
 }
 
 .gantt-content {
+  flex: 1; /* 自动填充容器剩余高度 */
   width: 100%;
-  height: calc(100% - 40px); /* 预留按钮空间 */
+  min-height: 200px; /* 最小高度，避免内容为空时塌陷 */
+  overflow: auto; /* 甘特图内容超出时横向/纵向滚动 */
 }
-
+@media (max-width: 768px) {
+  .gantt-toolbar {
+    padding: 4px 2px;
+    margin-bottom: 4px;
+  }
+  .gantt-title {
+    font-size: 12px;
+  }
+  .gantt-view-buttons .btn-text {
+    display: none;
+  }
+  .gantt-content {
+    min-height: 150px;
+  }
+}
 /* 任务树容器响应式 */
 .task-tree-container {
   width: 100%;
-  height: 400px;
-  min-height: 300px;
-  max-height: 600px;
+  display: flex;
+  flex-direction: column;
+  height: 100%; /* 填充选项卡高度 */
   padding: 4px;
   background-color: #fff;
   border-radius: 8px;
   box-shadow: 0 1px 2px #eee;
-  overflow: auto;
+  box-sizing: border-box;
 }
 
 .task-tree-content {
+  flex: 1; /* 自动填充剩余高度 */
   width: 100%;
-  height: calc(100% - 40px);
+  min-height: 200px; /* 最小高度 */
+  overflow: auto; /* 任务树内容超出时滚动 */
 }
 
 /* 树形节点样式优化 */
