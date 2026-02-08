@@ -49,11 +49,11 @@
               <template #default="scope">
                 <!-- 用 flex 容器包裹两个按钮，确保水平排列 -->
                 <div class="table-operation-buttons">
-                  <el-button size="mini" @click.stop="editProject(scope.row)">
+                  <el-button size="small" @click.stop="editProject(scope.row)">
                     <el-icon><Edit /></el-icon>
                     <span class="btn-text">编辑</span>
                   </el-button>
-                  <el-button size="mini" type="danger" @click.stop="deleteProject(scope.row)">
+                  <el-button size="small" type="danger" @click.stop="deleteProject(scope.row)">
                     <el-icon><Delete /></el-icon>
                     <span class="btn-text">删除</span>
                   </el-button>
@@ -135,7 +135,7 @@
                         <el-tag
                           :type="data.status === '已完成' ? 'success' :
                                 data.status === '进行中' ? 'warning' : 'info'"
-                          size="mini"
+                          size="small"
                           class="mr-2"
                         >
                           {{ data.status }}
@@ -149,7 +149,7 @@
                           v-if="data.priority"
                           :type="data.priority === 3 ? 'danger' :
                                 data.priority === 2 ? 'warning' : 'info'"
-                          size="mini"
+                          size="small"
                           effect="plain"
                           class="ml-2 priority-tag"
                         >
@@ -168,7 +168,7 @@
                         <div class="node-actions">
                           <el-button
                             type="primary"
-                            size="mini"
+                            size="small"
                             @click.stop="editTask(data)"
                             icon="Edit"
                             circle
@@ -176,7 +176,7 @@
                           />
                           <el-button
                             type="success"
-                            size="mini"
+                            size="small"
                             @click.stop="addChildTask(data)"
                             icon="Plus"
                             circle
@@ -184,7 +184,7 @@
                           />
                           <el-button
                             type="danger"
-                            size="mini"
+                            size="small"
                             @click.stop="deleteTask(data)"
                             icon="Delete"
                             circle
@@ -261,8 +261,17 @@
         <el-form-item label="结束日期" prop="end_date">
           <el-date-picker v-model="taskForm.end_date" type="date" placeholder="选择结束日期" />
         </el-form-item>
-        <el-form-item label="持续天数" prop="duration">
-          <el-input-number v-model="taskForm.duration" :min="1" size="small" />
+        <el-form-item label="持续天数">
+          <el-input
+            :value="taskForm.duration + ' 天'"
+            readonly
+            size="small"
+            placeholder="根据日期自动计算"
+          >
+            <template #suffix>
+              <span class="text-gray-400 text-xs">自动计算</span>
+            </template>
+          </el-input>
         </el-form-item>
         <el-form-item label="进度" prop="progress">
           <el-slider v-model="taskForm.progress" :max="100" show-input size="small" />
@@ -286,7 +295,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, nextTick } from 'vue'
+import { ref, reactive, onMounted, nextTick, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete, Refresh, Calendar, ArrowLeft } from '@element-plus/icons-vue'
 import {formatDateForDatabase } from '@/utils/dateUtils.js'
@@ -330,10 +339,36 @@ const taskForm = reactive({
   description: '',
   start_date: '',
   end_date: '',
-  duration: 1,
+  duration: 1,  // 将由计算得出
   progress: 0,
   priority: 2,
   parent: null
+})
+
+// 计算任务持续天数的函数
+const calculateDuration = (startDate, endDate) => {
+  if (!startDate || !endDate) return 1;
+
+  try {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    // 计算天数差（包括起始和结束日期）
+    const timeDiff = end.getTime() - start.getTime();
+    const dayDiff = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1;
+
+    return Math.max(1, dayDiff); // 至少1天
+  } catch (error) {
+    console.error('计算持续时间出错:', error);
+    return 1;
+  }
+}
+
+// 监听日期变化自动计算duration
+watch([() => taskForm.start_date, () => taskForm.end_date], ([newStart, newEnd]) => {
+  if (newStart && newEnd) {
+    taskForm.duration = calculateDuration(newStart, newEnd);
+  }
 })
 
 // 任务表单验证规则
@@ -680,6 +715,13 @@ const resetProjectForm = () => {
 }
 
 const resetTaskForm = () => {
+  console.log('=== resetTaskForm 调试 ===');
+  console.log('调用时 currentParentTask:', currentParentTask.value);
+
+  // 保存当前的parent值
+  const currentParentId = currentParentTask.value ? currentParentTask.value.id : null;
+  console.log('保存的 currentParentId:', currentParentId);
+
   Object.assign(taskForm, {
     name: '',
     description: '',
@@ -688,9 +730,11 @@ const resetTaskForm = () => {
     duration: 1,
     progress: 0,
     priority: 2,
-    parent: currentParentTask.value ? currentParentTask.value.id : null
-  })
-  editingTask.value = null
+    parent: currentParentId  // 使用保存的parent值
+  });
+
+  console.log('resetTaskForm 后 taskForm:', taskForm);
+  editingTask.value = null;
 }
 
 const refreshTaskTree = async () => {
@@ -752,9 +796,17 @@ const editTask = (task) => {
 const addChildTask = (parentTask) => {
   editingTask.value = null;
   currentParentTask.value = parentTask;
-  resetTaskForm();
+
+  console.log('设置 currentParentTask 后:', currentParentTask.value);
+  console.log('准备设置 taskForm.parent:', parentTask.id);
+
+  // 先设置parent，再重置表单，确保parent值不会被覆盖
   taskForm.parent = parentTask.id;
+  resetTaskForm();
+  // 确保duration字段保持正确的默认值
+  taskForm.duration = 1;
   showTaskDialog.value = true;
+  console.log('最终 taskForm 状态:', taskForm);
   setTimeout(() => {
     const nameInput = document.querySelector('.el-dialog input[placeholder="任务名称"]');
     if (nameInput) nameInput.focus();
@@ -807,16 +859,19 @@ const deleteTask = async (task) => {
 
 const saveTask = async () => {
   try {
+    // 确保duration字段有有效值
+    const durationValue = taskForm.duration && taskForm.duration > 0 ? taskForm.duration : 1;
+
     const taskData = {
       name: taskForm.name.trim(),
       description: taskForm.description.trim() || '',
       start_date: formatDateForDatabase(taskForm.start_date),
       end_date: formatDateForDatabase(taskForm.end_date),
-      duration: taskForm.duration || 1,
+      duration: durationValue,  // 使用确保有效的duration值
       progress: taskForm.progress || 0,
       priority: taskForm.priority || 2,
       project: selectedProject.value?.id,
-      parent: taskForm.parent || null
+      parent: taskForm.parent || null  // 关键字段
     };
 
     if (!taskData.name) {
@@ -840,6 +895,7 @@ const saveTask = async () => {
       await axios.put(`${API_BASE}/projects/tasks/${editingTask.value.id}/`, taskData);
       ElMessage.success('任务更新成功');
     } else {
+      console.log('发送的任务数据:', taskData);  // 调试信息
       await axios.post(`${API_BASE}/projects/tasks/`, taskData);
       ElMessage.success('任务创建成功');
     }
@@ -851,6 +907,7 @@ const saveTask = async () => {
     const errorMessage = editingTask.value ? '任务更新失败' : '任务创建失败';
     ElMessage.error(errorMessage);
     console.error('任务保存错误:', error.response?.data || error.message);
+    // 显示详细的错误信息
     if (error.response?.data) {
       const errorDetails = error.response.data;
       if (typeof errorDetails === 'object') {
@@ -860,6 +917,8 @@ const saveTask = async () => {
             ElMessage.error(`${key}: ${fieldErrors.join(', ')}`);
           }
         });
+      } else {
+        ElMessage.error(`错误详情: ${JSON.stringify(errorDetails)}`);
       }
     }
   }
