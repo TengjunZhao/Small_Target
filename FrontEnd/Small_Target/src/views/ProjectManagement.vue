@@ -15,7 +15,8 @@
             <div class="card-header">
               <span>项目列表</span>
               <el-button type="primary" @click="showCreateDialog = true">
-                新建项目
+                <el-icon><Plus /></el-icon>
+                <span class="btn-text">新建项目</span>
               </el-button>
             </div>
           </template>
@@ -26,22 +27,37 @@
             @row-click="selectProject"
             :row-class-name="tableRowClassName"
             highlight-current-row
+            :fit="true"
+            size="small"
           >
-            <el-table-column prop="name" label="项目名称" width="200" />
-            <el-table-column prop="description" label="描述" />
-            <el-table-column prop="start_date" label="开始日期" width="120" />
-            <el-table-column prop="end_date" label="结束日期" width="120" />
-            <el-table-column label="状态" width="100">
+            <el-table-column prop="name" label="项目名称" min-width="120" />
+            <el-table-column prop="description" label="描述" min-width="150" show-overflow-tooltip>
               <template #default="scope">
-                <el-tag :type="scope.row.is_active ? 'success' : 'info'">
+                <span class="truncate-text">{{ scope.row.description }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="start_date" label="开始日期" width="100" />
+            <el-table-column prop="end_date" label="结束日期" width="100" />
+            <el-table-column label="状态" width="80">
+              <template #default="scope">
+                <el-tag :type="scope.row.is_active ? 'success' : 'info'" size="small">
                   {{ scope.row.is_active ? '进行中' : '已结束' }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="150">
+            <el-table-column label="操作" width="200">
               <template #default="scope">
-                <el-button size="small" @click.stop="editProject(scope.row)">编辑</el-button>
-                <el-button size="small" type="danger" @click.stop="deleteProject(scope.row)">删除</el-button>
+                <!-- 用 flex 容器包裹两个按钮，确保水平排列 -->
+                <div class="table-operation-buttons">
+                  <el-button size="mini" @click.stop="editProject(scope.row)">
+                    <el-icon><Edit /></el-icon>
+                    <span class="btn-text">编辑</span>
+                  </el-button>
+                  <el-button size="mini" type="danger" @click.stop="deleteProject(scope.row)">
+                    <el-icon><Delete /></el-icon>
+                    <span class="btn-text">删除</span>
+                  </el-button>
+                </div>
               </template>
             </el-table-column>
           </el-table>
@@ -56,17 +72,19 @@
           </template>
 
           <!-- 核心：选项卡组件 -->
-          <el-tabs v-model="activeTab" class="w-full">
+          <el-tabs v-model="activeTab" class="w-full" type="card">
             <!-- 甘特图选项卡 -->
             <el-tab-pane label="甘特图" name="gantt">
-              <div class="w-full h-[600px] p-4 bg-white rounded-lg shadow-md">
-                <div ref="ganttRef" class="w-full h-full"></div>
-                <div class="mt-4 flex gap-2">
-                  <el-button @click="changeView('Day')" class="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 transition">
-                    日视图
+              <div class="gantt-container">
+                <div ref="ganttRef" class="gantt-content"></div>
+                <div class="mt-4 flex gap-2 flex-wrap">
+                  <el-button @click="changeView('Day')" size="small">
+                    <el-icon><Calendar /></el-icon>
+                    <span class="btn-text">日视图</span>
                   </el-button>
-                  <el-button @click="changeView('Month')" class="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 transition">
-                    月视图
+                  <el-button @click="changeView('Month')" size="small">
+                    <el-icon><Calendar /></el-icon>
+                    <span class="btn-text">月视图</span>
                   </el-button>
                 </div>
               </div>
@@ -74,14 +92,21 @@
 
             <!-- 任务分解树选项卡 -->
             <el-tab-pane label="任务分解树" name="taskTree">
-              <div class="w-full h-[600px] p-4 bg-white rounded-lg shadow-md overflow-auto">
+              <div class="task-tree-container">
                 <!-- 任务操作按钮 -->
                 <div class="mb-4 flex gap-2 flex-wrap">
+<<<<<<< Updated upstream
                   <el-button type="primary" @click="showTaskDialog = true; editingTask = null; currentParentTask = null; resetTaskForm()">
                     新增任务
+=======
+                  <el-button type="primary" size="small" @click="showTaskDialog = true; editingTask = null; currentParentTask = null; resetTaskForm()">
+                    <el-icon><Plus /></el-icon>
+                    <span class="btn-text">新增任务</span>
+>>>>>>> Stashed changes
                   </el-button>
-                  <el-button @click="refreshTaskTree">
-                    刷新任务树
+                  <el-button size="small" @click="refreshTaskTree">
+                    <el-icon><Refresh /></el-icon>
+                    <span class="btn-text">刷新</span>
                   </el-button>
                   <el-button @click="expandAllNodes">
                     展开全部
@@ -93,98 +118,88 @@
                     查看展开状态
                   </el-button>
                 </div>
-                
+
                 <!-- 任务树形组件 -->
                 <el-tree
                   :data="taskTreeData"
                   :props="treeProps"
                   node-key="id"
+<<<<<<< Updated upstream
                   :default-expanded-keys="expandedKeys"
                   class="w-full h-full"
                   :expand-on-click-node="false"
                   @node-expand="handleNodeExpand"
                   @node-collapse="handleNodeCollapse"
+=======
+                  default-expand-all
+                  class="task-tree-content"
+                  :expand-on-click-node="false"
+                  size="small"
+>>>>>>> Stashed changes
                 >
                   <!-- 自定义树形节点内容 -->
                   <template #default="{ node, data }">
-                    <div class="flex items-center justify-between w-full py-1">
-                      <div class="flex items-center flex-1 min-w-0">
+                    <div class="tree-node-content">
+                      <div class="node-left">
                         <!-- 状态标签 -->
-                        <el-tag 
-                          :type="data.status === '已完成' ? 'success' : 
-                                data.status === '进行中' ? 'warning' : 'info'" 
-                          size="small" 
-                          class="mr-2 flex-shrink-0"
+                        <el-tag
+                          :type="data.status === '已完成' ? 'success' :
+                                data.status === '进行中' ? 'warning' : 'info'"
+                          size="mini"
+                          class="mr-2"
                         >
                           {{ data.status }}
                         </el-tag>
-                        
+
                         <!-- 任务名称 -->
-                        <span class="font-medium truncate mr-2">{{ node.label }}</span>
-                        
-                        <!-- 优先级标签 -->
-                        <el-tag 
+                        <span class="font-medium truncate" :title="node.label + (data.description ? ' - ' + data.description : '')">{{ node.label }}</span>
+
+                        <!-- 优先级标签（移动端隐藏） -->
+                        <el-tag
                           v-if="data.priority"
-                          :type="data.priority === 3 ? 'danger' : 
-                                data.priority === 2 ? 'warning' : 'info'" 
-                          size="small" 
+                          :type="data.priority === 3 ? 'danger' :
+                                data.priority === 2 ? 'warning' : 'info'"
+                          size="mini"
                           effect="plain"
-                          class="mr-2 flex-shrink-0"
+                          class="ml-2 priority-tag"
                         >
-                          {{ data.priority === 3 ? '高' : data.priority === 2 ? '中' : '低' }}优先级
+                          {{ data.priority === 3 ? '高' : data.priority === 2 ? '中' : '低' }}
                         </el-tag>
-                        
-                        <!-- 任务描述（如果存在且较短） -->
-                        <span 
-                          v-if="data.description && data.description.length <= 30" 
-                          class="text-gray-500 text-sm truncate hidden sm:block"
-                          :title="data.description"
-                        >
-                          {{ data.description }}
-                        </span>
                       </div>
-                      
+
                       <!-- 右侧信息 -->
-                      <div class="flex items-center space-x-3 flex-shrink-0">
-                        <!-- 进度 -->
-                        <span class="text-sm text-gray-600 whitespace-nowrap">
-                          进度：{{ data.progress }}%
+                      <div class="node-right">
+                        <!-- 进度（简化显示） -->
+                        <span class="text-xs progress-text">
+                          {{ data.progress }}%
                         </span>
-                        
-                        <!-- 时间信息 -->
-                        <span 
-                          v-if="data.start_date && data.end_date"
-                          class="text-xs text-gray-400 hidden md:block"
-                        >
-                          {{ data.start_date }} 至 {{ data.end_date }}
-                        </span>
-                        
+
                         <!-- 操作按钮 -->
-                        <div class="flex items-center space-x-1 flex-shrink-0">
-                          <el-button 
-                            type="primary" 
-                            size="small" 
+                        <div class="node-actions">
+                          <el-button
+                            type="primary"
+                            size="mini"
                             @click.stop="editTask(data)"
+                            icon="Edit"
+                            circle
                             title="编辑任务"
-                          >
-                            编辑
-                          </el-button>
-                          <el-button 
-                            type="success" 
-                            size="small" 
+                          />
+                          <el-button
+                            type="success"
+                            size="mini"
                             @click.stop="addChildTask(data)"
+                            icon="Plus"
+                            circle
                             title="添加子任务"
-                          >
-                            添加子任务
-                          </el-button>
-                          <el-button 
-                            type="danger" 
-                            size="small" 
+                          />
+                          <el-button
+                            type="danger"
+                            size="mini"
                             @click.stop="deleteTask(data)"
+                            icon="Delete"
+                            circle
                             title="删除任务"
-                          >
-                            删除
-                          </el-button>
+                          />
                         </div>
                       </div>
                     </div>
@@ -196,20 +211,23 @@
 
           <!-- 返回按钮 -->
           <div class="mt-4 flex justify-end">
-            <el-button type="primary" @click="handleBack">返回项目列表</el-button>
+            <el-button type="primary" size="small" @click="handleBack">
+              <el-icon><ArrowLeft /></el-icon>
+              <span class="btn-text">返回列表</span>
+            </el-button>
           </div>
         </el-card>
       </div>
     </div>
 
     <!-- 创建/编辑项目对话框 -->
-    <el-dialog v-model="showCreateDialog" :title="editingProject ? '编辑项目' : '新建项目'" width="500px">
-      <el-form :model="projectForm" :rules="projectRules" ref="projectFormRef" label-width="100px">
+    <el-dialog v-model="showCreateDialog" :title="editingProject ? '编辑项目' : '新建项目'" width="90%" max-width="500px">
+      <el-form :model="projectForm" :rules="projectRules" ref="projectFormRef" label-width="80px" size="small">
         <el-form-item label="项目名称" prop="name">
           <el-input v-model="projectForm.name" />
         </el-form-item>
         <el-form-item label="描述" prop="description">
-          <el-input v-model="projectForm.description" type="textarea" />
+          <el-input v-model="projectForm.description" type="textarea" :rows="2" />
         </el-form-item>
         <el-form-item label="开始日期" prop="start_date">
           <el-date-picker v-model="projectForm.start_date" type="date" placeholder="选择开始日期" />
@@ -217,8 +235,8 @@
         <el-form-item label="结束日期" prop="end_date">
           <el-date-picker v-model="projectForm.end_date" type="date" placeholder="选择结束日期" />
         </el-form-item>
-        <el-form-item label="项目负责人" prop="owner">
-          <el-select v-model="projectForm.owner" placeholder="请选择项目负责人">
+        <el-form-item label="负责人" prop="owner">
+          <el-select v-model="projectForm.owner" placeholder="选择负责人">
             <el-option label="管理员" :value="1" />
             <el-option label="用户1" :value="2" />
             <el-option label="用户2" :value="3" />
@@ -227,24 +245,25 @@
       </el-form>
       <template #footer>
         <span class="dialog-footer">
-          <el-button @click="showCreateDialog = false">取消</el-button>
-          <el-button type="primary" @click="saveProject">保存</el-button>
+          <el-button size="small" @click="showCreateDialog = false">取消</el-button>
+          <el-button type="primary" size="small" @click="saveProject">保存</el-button>
         </span>
       </template>
     </el-dialog>
-    
+
     <!-- 任务对话框 -->
-    <el-dialog 
-      v-model="showTaskDialog" 
-      :title="editingTask ? '编辑任务' : (currentParentTask ? '添加子任务' : '新增任务')" 
-      width="500px"
+    <el-dialog
+      v-model="showTaskDialog"
+      :title="editingTask ? '编辑任务' : (currentParentTask ? '添加子任务' : '新增任务')"
+      width="90%"
+      max-width="500px"
     >
-      <el-form :model="taskForm" :rules="taskRules" ref="taskFormRef" label-width="100px">
+      <el-form :model="taskForm" :rules="taskRules" ref="taskFormRef" label-width="80px" size="small">
         <el-form-item label="任务名称" prop="name">
           <el-input v-model="taskForm.name" />
         </el-form-item>
         <el-form-item label="描述" prop="description">
-          <el-input v-model="taskForm.description" type="textarea" />
+          <el-input v-model="taskForm.description" type="textarea" :rows="2" />
         </el-form-item>
         <el-form-item label="开始日期" prop="start_date">
           <el-date-picker v-model="taskForm.start_date" type="date" placeholder="选择开始日期" />
@@ -253,13 +272,13 @@
           <el-date-picker v-model="taskForm.end_date" type="date" placeholder="选择结束日期" />
         </el-form-item>
         <el-form-item label="持续天数" prop="duration">
-          <el-input-number v-model="taskForm.duration" :min="1" />
+          <el-input-number v-model="taskForm.duration" :min="1" size="small" />
         </el-form-item>
         <el-form-item label="进度" prop="progress">
-          <el-slider v-model="taskForm.progress" :max="100" show-input />
+          <el-slider v-model="taskForm.progress" :max="100" show-input size="small" />
         </el-form-item>
         <el-form-item label="优先级" prop="priority">
-          <el-select v-model="taskForm.priority">
+          <el-select v-model="taskForm.priority" size="small">
             <el-option label="低" :value="1" />
             <el-option label="中" :value="2" />
             <el-option label="高" :value="3" />
@@ -268,8 +287,8 @@
       </el-form>
       <template #footer>
         <span class="dialog-footer">
-          <el-button @click="showTaskDialog = false">取消</el-button>
-          <el-button type="primary" @click="saveTask">保存</el-button>
+          <el-button size="small" @click="showTaskDialog = false">取消</el-button>
+          <el-button type="primary" size="small" @click="saveTask">保存</el-button>
         </span>
       </template>
     </el-dialog>
@@ -279,6 +298,7 @@
 <script setup>
 import { ref, reactive, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Plus, Edit, Delete, Refresh, Calendar, ArrowLeft } from '@element-plus/icons-vue'
 import axios from 'axios'
 import Gantt from 'frappe-gantt'
 import '../assets/frappe-gantt.css'
@@ -288,7 +308,6 @@ const projects = ref([])
 const selectedProject = ref(null)
 const showCreateDialog = ref(false)
 const editingProject = ref(null)
-// 新增：选项卡激活状态（默认显示甘特图）
 const activeTab = ref('gantt')
 
 // 任务管理状态
@@ -303,7 +322,7 @@ const projectForm = reactive({
   description: '',
   start_date: '',
   end_date: '',
-  owner: 1  // 默认用户ID，实际应用中应该从认证系统获取
+  owner: 1
 })
 
 const projectRules = {
@@ -342,16 +361,10 @@ const taskRules = {
 // 甘特图核心配置
 const ganttRef = ref(null)
 let ganttInstance = null
-
-// 新增：甘特图数据状态
 const ganttData = ref([])
-
-// 新增：任务分解树数据（和甘特图数据联动）
 const taskTreeData = ref([])
-
-// 新增：树形组件配置
 const treeProps = ref({
-  label: 'label',
+  label: 'name',
   children: 'children',
   isLeaf: (data) => !data.children || data.children.length === 0
 })
@@ -372,11 +385,9 @@ const goBack = () => {
   window.history.back()
 }
 
-// 新增：返回项目列表（重置所有状态）
 const handleBack = () => {
   selectedProject.value = null
-  activeTab.value = 'gantt' // 重置选项卡
-  // 销毁甘特图实例
+  activeTab.value = 'gantt'
   if (ganttInstance) {
     try {
       ganttInstance.destroy()
@@ -399,17 +410,12 @@ const loadProjects = async () => {
 }
 
 const selectProject = async (project) => {
-  // 如果点击的是已选中的项目，则不重复加载
-  if (selectedProject.value?.id === project.id) {
-    return
-  }
+  if (selectedProject.value?.id === project.id) return
 
   selectedProject.value = project
   activeTab.value = 'gantt'
-
   await nextTick()
 
-  // 销毁旧甘特图实例
   if (ganttInstance) {
     try {
       ganttInstance.destroy()
@@ -423,12 +429,9 @@ const selectProject = async (project) => {
     return
   }
 
-  // 从后端获取甘特图数据
   try {
     const response = await axios.get(`${API_BASE}/projects/projects/${project.id}/gantt_data/`)
     const backendGanttData = response.data
-
-    // 转换后端数据为frappe-gantt格式
     const formattedGanttData = backendGanttData.map(task => ({
       id: task.id.toString(),
       name: task.name,
@@ -440,47 +443,43 @@ const selectProject = async (project) => {
     }))
 
     ganttData.value = formattedGanttData
-
-    // 初始化甘特图
     ganttInstance = new Gantt(ganttRef.value, ganttData.value, {
-      header_height: 50,
-      column_width: 60,
+      header_height: 40, // 移动端缩小头部高度
+      column_width: 50,
       step: 24,
       view_modes: ['Day', 'Week', 'Month'],
-      bar_height: 20,
+      bar_height: 18,
       bar_corner_radius: 4,
       arrow_curve: 5,
-      padding: 18,
+      padding: 10,
       date_format: 'YYYY-MM-DD',
       popup_trigger: 'click',
       custom_popup_html: (task) => {
         return `
-          <div class="p-3 bg-white rounded-lg shadow-lg border border-gray-200">
-            <h5 class="font-bold text-lg text-gray-800">${task.name}</h5>
-            <p class="text-sm text-gray-600">进度：${task.progress}%</p>
-            <p class="text-sm text-gray-600">时间：${task.start} - ${task.end}</p>
+          <div class="p-2 bg-white rounded-lg shadow-lg border border-gray-200 text-sm">
+            <h5 class="font-bold text-gray-800">${task.name}</h5>
+            <p class="text-xs text-gray-600">进度：${task.progress}%</p>
+            <p class="text-xs text-gray-600">时间：${task.start} - ${task.end}</p>
           </div>
         `
       }
     })
     ElMessage.success(`已加载${project.name}的甘特图`)
-
-    // 同时加载任务树数据
     await loadTaskTreeData(project.id)
   } catch (err) {
     console.error('甘特图初始化失败：', err)
     ElMessage.error('甘特图初始化失败')
     ganttData.value = []
     try {
-      ganttInstance = new Gantt(ganttRef.value, [], { /* 空配置 */ })
+      ganttInstance = new Gantt(ganttRef.value, [], {})
     } catch (e) {}
   }
 }
 
-// 新增：加载任务树数据
 const loadTaskTreeData = async (projectId) => {
   try {
     const response = await axios.get(`${API_BASE}/projects/projects/${projectId}/`)
+<<<<<<< Updated upstream
     // 后端已经返回了完整的树形结构，直接使用
     let treeData = response.data.tasks || []
     
@@ -500,11 +499,13 @@ const loadTaskTreeData = async (projectId) => {
     treeData = convertTaskData(treeData)
     
     // 直接赋值，因为后端已经构建好了树形结构
+=======
+    const treeData = response.data.tasks || []
+>>>>>>> Stashed changes
     taskTreeData.value = treeData
-    
-    // 强制触发响应式更新
     await nextTick()
     taskTreeData.value = [...taskTreeData.value]
+<<<<<<< Updated upstream
     
     // 调试信息
     console.log('从后端获取的任务树数据:', taskTreeData.value)
@@ -558,37 +559,34 @@ const loadTaskTreeData = async (projectId) => {
     console.log('=== 任务树结构验证 ===')
     validateTreeStructure(taskTreeData.value)
     
+=======
+>>>>>>> Stashed changes
   } catch (error) {
     console.error('加载任务树数据失败：', error)
     taskTreeData.value = []
   }
 }
 
-// 修复：视图切换（兼容无change_view_mode方法的情况）
 const changeView = (mode) => {
   if (!ganttInstance) return
-
   try {
-    // 优先调用实例方法
     if (ganttInstance.change_view_mode) {
       ganttInstance.change_view_mode(mode)
     } else if (ganttInstance.setViewMode) {
       ganttInstance.setViewMode(mode)
     } else {
-      // 兜底：重新初始化甘特图
       const newInstance = new Gantt(ganttRef.value, ganttData, {
-        header_height: 50,
-        column_width: 60,
+        header_height: 40,
+        column_width: 50,
         step: 24,
         view_modes: ['Day', 'Week', 'Month'],
-        view_mode: mode, // 手动指定视图模式
-        bar_height: 20,
+        view_mode: mode,
+        bar_height: 18,
         bar_corner_radius: 4,
         arrow_curve: 5,
-        padding: 18,
+        padding: 10,
         date_format: 'YYYY-MM-DD'
       })
-      // 替换旧实例
       ganttInstance = newInstance
     }
     ElMessage.success(`切换为${mode}视图`)
@@ -598,14 +596,8 @@ const changeView = (mode) => {
   }
 }
 
-
-
 const saveProject = async () => {
   try {
-    // 验证表单数据
-    console.log('提交的项目数据:', projectForm);
-    
-    // 确保所有必需字段都有值
     const projectData = {
       name: projectForm.name.trim(),
       description: projectForm.description.trim() || '',
@@ -613,35 +605,28 @@ const saveProject = async () => {
       end_date: projectForm.end_date,
       owner: projectForm.owner
     };
-    
-    // 验证数据完整性
+
     if (!projectData.name) {
       ElMessage.error('项目名称不能为空');
       return;
     }
-    
     if (!projectData.start_date || !projectData.end_date) {
       ElMessage.error('请填写完整的日期信息');
       return;
     }
-    
     if (!projectData.owner) {
       ElMessage.error('请选择项目负责人');
       return;
     }
-    
-    console.log('发送的项目数据:', projectData);
-    
+
     if (editingProject.value) {
-      const response = await axios.put(`${API_BASE}/projects/projects/${editingProject.value.id}/`, projectData);
-      console.log('项目更新响应:', response.data);
+      await axios.put(`${API_BASE}/projects/projects/${editingProject.value.id}/`, projectData);
       ElMessage.success('项目更新成功');
     } else {
-      const response = await axios.post(`${API_BASE}/projects/projects/`, projectData);
-      console.log('项目创建响应:', response.data);
+      await axios.post(`${API_BASE}/projects/projects/`, projectData);
       ElMessage.success('项目创建成功');
     }
-    
+
     showCreateDialog.value = false;
     await loadProjects();
     resetProjectForm();
@@ -649,8 +634,6 @@ const saveProject = async () => {
     const errorMessage = editingProject.value ? '项目更新失败' : '项目创建失败';
     ElMessage.error(errorMessage);
     console.error('项目保存错误:', error.response?.data || error.message);
-    
-    // 显示具体的错误信息
     if (error.response?.data) {
       const errorDetails = error.response.data;
       if (typeof errorDetails === 'object') {
@@ -687,7 +670,7 @@ const deleteProject = async (project) => {
     ElMessage.success('项目删除成功')
     loadProjects()
     if (selectedProject.value?.id === project.id) {
-      handleBack() // 调用统一的返回方法
+      handleBack()
     }
   } catch (error) {
     if (error !== 'cancel') {
@@ -712,7 +695,6 @@ const resetProjectForm = () => {
   editingProject.value = null
 }
 
-// 任务管理函数
 const resetTaskForm = () => {
   Object.assign(taskForm, {
     name: '',
@@ -764,11 +746,8 @@ const calculateTreeDepth = (nodes, currentDepth = 0) => {
 }
 
 const editTask = (task) => {
-  console.log('编辑任务:', task);
   editingTask.value = task;
   currentParentTask.value = null;
-  
-  // 填充表单数据
   Object.assign(taskForm, {
     name: task.label || task.name || '',
     description: task.description || '',
@@ -779,35 +758,22 @@ const editTask = (task) => {
     priority: task.priority || 2,
     parent: task.parent_id || null
   });
-  
-  console.log('填充后的表单数据:', taskForm);
   showTaskDialog.value = true;
-  
-  // 添加一个小延迟确保对话框完全渲染后再设置焦点
   setTimeout(() => {
     const nameInput = document.querySelector('.el-dialog input[placeholder="任务名称"]');
-    if (nameInput) {
-      nameInput.focus();
-    }
+    if (nameInput) nameInput.focus();
   }, 100);
 }
 
 const addChildTask = (parentTask) => {
-  console.log('添加子任务到:', parentTask);
   editingTask.value = null;
   currentParentTask.value = parentTask;
   resetTaskForm();
-  showTaskDialog.value = true;
-  
-  // 设置父任务ID
   taskForm.parent = parentTask.id;
-  
-  // 添加延迟确保对话框渲染完成
+  showTaskDialog.value = true;
   setTimeout(() => {
     const nameInput = document.querySelector('.el-dialog input[placeholder="任务名称"]');
-    if (nameInput) {
-      nameInput.focus();
-    }
+    if (nameInput) nameInput.focus();
   }, 100);
 }
 
@@ -840,11 +806,10 @@ const collapseAllNodes = () => {
 const deleteTask = async (task) => {
   try {
     await ElMessageBox.confirm(
-      `确定要删除任务 "${task.label || task.name}" 吗？`, 
-      '确认删除', 
+      `确定要删除任务 "${task.label || task.name}" 吗？`,
+      '确认删除',
       { type: 'warning' }
     )
-    
     await axios.delete(`${API_BASE}/projects/tasks/${task.id}/`)
     ElMessage.success('任务删除成功')
     await refreshTaskTree()
@@ -858,10 +823,6 @@ const deleteTask = async (task) => {
 
 const saveTask = async () => {
   try {
-    // 验证表单数据
-    console.log('提交的任务表单:', taskForm);
-    
-    // 确保必需字段都有值
     const formatDate = (date) => {
       if (!date) return null;
       const d = new Date(date);
@@ -870,7 +831,7 @@ const saveTask = async () => {
       const day = String(d.getDate()).padStart(2, '0');
       return `${year}-${month}-${day}`;
     };
-    
+
     const taskData = {
       name: taskForm.name.trim(),
       description: taskForm.description.trim() || '',
@@ -882,43 +843,32 @@ const saveTask = async () => {
       project: selectedProject.value?.id,
       parent: taskForm.parent || null
     };
-    
-    // 验证数据完整性
+
     if (!taskData.name) {
       ElMessage.error('任务名称不能为空');
       return;
     }
-    
     if (!taskData.start_date || !taskData.end_date) {
       ElMessage.error('请填写完整的日期信息');
       return;
     }
-    
     if (!taskData.project) {
       ElMessage.error('未选择项目，请先选择一个项目');
       return;
     }
-    
     if (new Date(taskData.start_date) > new Date(taskData.end_date)) {
       ElMessage.error('开始日期不能晚于结束日期');
       return;
     }
-    
-    console.log('发送的任务数据:', taskData);
-    
-    let response;
+
     if (editingTask.value) {
-      // 编辑任务
-      response = await axios.put(`${API_BASE}/projects/tasks/${editingTask.value.id}/`, taskData);
-      console.log('任务更新响应:', response.data);
+      await axios.put(`${API_BASE}/projects/tasks/${editingTask.value.id}/`, taskData);
       ElMessage.success('任务更新成功');
     } else {
-      // 新增任务
-      response = await axios.post(`${API_BASE}/projects/tasks/`, taskData);
-      console.log('任务创建响应:', response.data);
+      await axios.post(`${API_BASE}/projects/tasks/`, taskData);
       ElMessage.success('任务创建成功');
     }
-    
+
     showTaskDialog.value = false;
     await refreshTaskTree();
     resetTaskForm();
@@ -926,8 +876,6 @@ const saveTask = async () => {
     const errorMessage = editingTask.value ? '任务更新失败' : '任务创建失败';
     ElMessage.error(errorMessage);
     console.error('任务保存错误:', error.response?.data || error.message);
-    
-    // 显示具体的错误信息
     if (error.response?.data) {
       const errorDetails = error.response.data;
       if (typeof errorDetails === 'object') {
@@ -945,33 +893,122 @@ const saveTask = async () => {
 
 <style scoped>
 .project-management-container {
-  padding: 20px;
+  padding: 10px; /* 移动端缩小内边距 */
   height: 100vh;
   display: flex;
   flex-direction: column;
+  box-sizing: border-box; /* 防止padding导致溢出 */
+  overflow: auto; /* 允许整体滚动 */
 }
 
 .main-content {
   display: flex;
-  gap: 20px;
+  gap: 15px;
   flex: 1;
-  margin-top: 20px;
+  margin-top: 15px;
+  flex-wrap: wrap; /* 允许换行 */
 }
 
+/* 项目列表区域响应式 */
 .project-list-section {
   flex: 1;
-  min-width: 400px;
+  min-width: 280px; /* 移动端最小宽度 */
+  max-width: 100%;
 }
 
+/* 项目详情区域响应式 */
 .project-detail-section {
-  flex: 2;
-  min-width: 600px;
+  flex: 1; /* 移动端和列表等分 */
+  min-width: 280px;
+  max-width: 100%;
 }
 
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+/* 甘特图容器响应式 */
+.gantt-container {
+  width: 100%;
+  height: 400px; /* 基础高度 */
+  min-height: 300px;
+  max-height: 600px;
+  padding: 4px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px #eee;
+}
+
+.gantt-content {
+  width: 100%;
+  height: calc(100% - 40px); /* 预留按钮空间 */
+}
+
+/* 任务树容器响应式 */
+.task-tree-container {
+  width: 100%;
+  height: 400px;
+  min-height: 300px;
+  max-height: 600px;
+  padding: 4px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px #eee;
+  overflow: auto;
+}
+
+.task-tree-content {
+  width: 100%;
+  height: calc(100% - 40px);
+}
+
+/* 树形节点样式优化 */
+.tree-node-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 2px 0;
+}
+
+.node-left {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0; /* 解决文字溢出 */
+  gap: 8px;
+}
+
+.node-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.node-actions {
+  display: flex;
+  gap: 4px;
+}
+
+/* 文字截断 */
+.truncate-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* 表格操作按钮容器 */
+.table-operation-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.selected-row {
+  background-color: #ecf5ff !important;
 }
 
 /* 日期选择器样式修复 */
@@ -983,29 +1020,88 @@ const saveTask = async () => {
   width: 100%;
 }
 
-.selected-row {
-  background-color: #ecf5ff !important;
-}
-
-/* 甘特图样式覆盖，适配Tailwind */
+/* 甘特图样式覆盖 */
 :deep(.gantt-task) {
-  @apply rounded-md transition-all duration-200;
+  border-radius: 4px;
+  transition: all 0.2s;
 }
 :deep(.gantt-task:hover) {
-  @apply scale-[1.02];
+  transform: scale(1.02);
 }
 :deep(.gantt-header) {
-  @apply bg-gray-50 border-b border-gray-200;
+  background-color: #f5f5f5;
+  border-bottom: 1px solid #eee;
 }
 
-/* 任务树样式优化 */
-:deep(.el-tree) {
-  @apply w-full h-full;
+/* 媒体查询 - 平板 (768px以下) */
+@media (max-width: 768px) {
+  .main-content {
+    flex-direction: column; /* 垂直排列 */
+    gap: 10px;
+  }
+
+  .gantt-container, .task-tree-container {
+    height: 300px; /* 平板缩小高度 */
+  }
+
+  /* 隐藏优先级文字，只留图标 */
+  .priority-tag {
+    display: none;
+  }
+
+  /* 隐藏按钮文字，只留图标 */
+  .btn-text {
+    display: none;
+  }
+
+  /* 进度文字简化 */
+  .progress-text {
+    font-size: 10px;
+  }
 }
-:deep(.el-tree-node__content) {
-  @apply py-2 px-1;
+
+/* 媒体查询 - 手机 (480px以下) */
+@media (max-width: 480px) {
+  .project-management-container {
+    padding: 5px;
+  }
+
+  .gantt-container, .task-tree-container {
+    height: 250px; /* 手机进一步缩小高度 */
+  }
+
+  /* 表格列优化 */
+  :deep(.el-table-column--width-100) {
+    width: 80px !important;
+  }
+
+  :deep(.el-table-column--width-80) {
+    width: 60px !important;
+  }
+
+  /* 树形节点进一步简化 */
+  .node-left {
+    gap: 4px;
+  }
+
+  .node-actions {
+    gap: 2px;
+  }
 }
-:deep(.el-tree-node__expand-icon) {
-  @apply mr-2;
+.table-operation-buttons {
+  display: flex;
+  gap: 8px; /* 按钮之间的间距 */
+  white-space: nowrap; /* 禁止按钮内文字换行 */
+  align-items: center; /* 垂直居中对齐 */
+}
+
+/* 可选：响应式隐藏按钮文字（小屏幕只显示图标） */
+@media (max-width: 768px) {
+  .btn-text {
+    display: none;
+  }
+  .table-operation-buttons {
+    gap: 4px;
+  }
 }
 </style>
