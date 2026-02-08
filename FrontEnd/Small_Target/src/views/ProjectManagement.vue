@@ -1156,7 +1156,7 @@ const saveTask = async () => {
   }
 
   .gantt-container, .task-tree-container {
-    height: 250px; /* 手机进一步缩小高度 */
+    height: 100%; /* 手机进一步缩小高度 */
   }
 
   /* 表格列优化 */
