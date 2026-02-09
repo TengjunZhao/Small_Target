@@ -935,7 +935,7 @@ const saveTask = async () => {
   display: flex;
   flex-direction: column;
   box-sizing: border-box; /* 防止padding导致溢出 */
-  overflow: hidden; /* 允许整体滚动 */
+  overflow: auto; /* 允许整体滚动 */
 }
 
 .main-content {
@@ -943,7 +943,6 @@ const saveTask = async () => {
   gap: 15px;
   flex: 1;
   margin-top: 15px;
-  flex-wrap: wrap; /* 允许换行 */
   overflow: auto;
 }
 
@@ -1151,6 +1150,11 @@ const saveTask = async () => {
 
 /* 媒体查询 - 手机 (480px以下) */
 @media (max-width: 480px) {
+  .main-content {
+    flex-direction: column; /* 垂直排列 */
+    gap: 10px;
+  }
+
   .project-management-container {
     padding: 5px;
   }
