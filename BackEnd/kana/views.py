@@ -72,24 +72,17 @@ def log_result(request):
     try:
         data = json.loads(request.body)
         user_id = data.get('user_id', 1)
-        romaji = data.get('romaji')
+        kana_id = data.get('kana_id')  # 修改为kana_id
         correct = data.get('correct', False)
         
-        if not romaji:
-            return JsonResponse({'error': '缺少romaji参数'}, status=400)
+        if not kana_id:
+            return JsonResponse({'error': '缺少kana_id参数'}, status=400)
         
-        # 查找对应的假名
+        # 查找对应的假名 - 使用id确保唯一性
         try:
-            kana_list = Kana.objects.filter(romaji=romaji)
-            if not kana_list:
-                return JsonResponse({'error': f'假名 {romaji} 不存在'}, status=404)
-            elif len(kana_list) > 1:
-                # 多条记录时：优先选择平假名，否则取第一条
-                kana = next((k for k in kana_list if k.kana_type == 'hira'), kana_list[0])
-            else:
-                kana = kana_list[0]
-        except Exception as e:
-            return JsonResponse({'error': f'查询假名失败: {str(e)}'}, status=500)
+            kana = Kana.objects.get(id=kana_id)  # 使用get()确保唯一
+        except Kana.DoesNotExist:
+            return JsonResponse({'error': f'假名ID {kana_id} 不存在'}, status=404)
         
         # 获取或创建用户进度记录
         progress, created = UserProgress.objects.get_or_create(
@@ -111,7 +104,7 @@ def log_result(request):
         progress.save()
         
         # 添加调试信息
-        print(f"DEBUG: log_result - user_id={user_id}, romaji='{romaji}', correct={correct}, created={created}, progress_id={progress.id}")
+        print(f"DEBUG: log_result - user_id={user_id}, kana_id={kana_id}, romaji='{kana.romaji}', correct={correct}, created={created}, progress_id={progress.id}")
         
         return JsonResponse({
             'message': '记录成功',

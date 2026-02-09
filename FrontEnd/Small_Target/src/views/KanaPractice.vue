@@ -89,7 +89,7 @@
 import { ref, computed, onMounted } from 'vue';
 const userId = 1; // 简化：使用固定游客账户
 
-const currentKana = ref({ hira: '', kata: '', romaji: '' })
+const currentKana = ref({ hira: '', kata: '', romaji: '', id: null })
 const currentKanaDisplay = ref('')
 const options = ref([])
 const isAnswered = ref(false)
@@ -111,7 +111,12 @@ const fetchNextKana = async () => {
     // 获取下一题
     const res = await fetch(`/api/kana/next/?user_id=${userId}`)
     const data = await res.json()
-    currentKana.value = { hira: data.hira, kata: data.kata, romaji: data.romaji }
+    currentKana.value = { 
+      hira: data.hira, 
+      kata: data.kata, 
+      romaji: data.romaji,
+      id: data.id  // 添加id字段
+    }
     currentKanaDisplay.value = Math.random() > 0.5 ? data.hira : data.kata
     options.value = data.options || []
     
@@ -126,21 +131,19 @@ const fetchNextKana = async () => {
   }
 }
 
-const logResult = async (correct) => {
+const logResult = async (correct, kanaId) => {
   try {
     const response = await fetch('/api/kana/log/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: userId, romaji: currentKana.value.romaji, correct }),
+      body: JSON.stringify({ 
+        user_id: userId, 
+        kana_id: kanaId,  // 使用kana_id代替romaji
+        correct 
+      }),
     })
     const result = await response.json()
     console.log('记录结果:', result)
-    
-    // 如果记录成功，重新获取最新的统计信息（可选）
-    // 这里我们先保持本地状态，因为后端返回了progress信息
-    if (result.message === '记录成功') {
-      // 可以选择更新本地状态为后端返回的值，但通常本地状态更准确
-    }
   } catch (e) {
     console.error('记录结果失败:', e)
   }
@@ -157,15 +160,15 @@ const handleAnswerClick = async (option) => {
     wrongCount.value++
   }
   
-  // 隐藏提示
+  // 隐藏提示，显示答案
   showHint.value = false
   
-  // 记录结果
-  await logResult(isCorrect)
+  // 记录结果，传递kana_id
+  await logResult(isCorrect, currentKana.value.id)
   
-  // 延迟获取下一题，让用户看到结果
+  // 延迟获取下一题
   setTimeout(() => {
-    showHint.value = true // 重新显示提示
+    showHint.value = true
     fetchNextKana()
   }, 1500)
 }
@@ -189,7 +192,6 @@ const resetPractice = async () => {
 
 onMounted(async () => {
   await fetchNextKana()
-  // 初始加载错误记录
   await fetchErrorList()
 })
 </script>
