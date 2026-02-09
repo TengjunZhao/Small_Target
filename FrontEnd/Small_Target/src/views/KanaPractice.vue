@@ -135,6 +135,12 @@ const logResult = async (correct) => {
     })
     const result = await response.json()
     console.log('记录结果:', result)
+    
+    // 如果记录成功，重新获取最新的统计信息（可选）
+    // 这里我们先保持本地状态，因为后端返回了progress信息
+    if (result.message === '记录成功') {
+      // 可以选择更新本地状态为后端返回的值，但通常本地状态更准确
+    }
   } catch (e) {
     console.error('记录结果失败:', e)
   }
@@ -151,9 +157,10 @@ const handleAnswerClick = async (option) => {
     wrongCount.value++
   }
   
-  // 隐藏提示，显示答案
+  // 隐藏提示
   showHint.value = false
   
+  // 记录结果
   await logResult(isCorrect)
   
   // 延迟获取下一题，让用户看到结果

@@ -3,6 +3,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 import json
 import random
+from django.db import transaction
 from .models import Kana, UserProgress
 
 def _weighted_choice(items, weights):
@@ -62,6 +63,7 @@ def get_next_kana(request):
         return JsonResponse({'error': str(e)}, status=500)
 
 @csrf_exempt
+@transaction.atomic
 def log_result(request):
     """记录练习结果"""
     if request.method != 'POST':
@@ -78,9 +80,16 @@ def log_result(request):
         
         # 查找对应的假名
         try:
-            kana = Kana.objects.get(romaji=romaji)
-        except Kana.DoesNotExist:
-            return JsonResponse({'error': f'假名 {romaji} 不存在'}, status=404)
+            kana_list = Kana.objects.filter(romaji=romaji)
+            if not kana_list:
+                return JsonResponse({'error': f'假名 {romaji} 不存在'}, status=404)
+            elif len(kana_list) > 1:
+                # 多条记录时：优先选择平假名，否则取第一条
+                kana = next((k for k in kana_list if k.kana_type == 'hira'), kana_list[0])
+            else:
+                kana = kana_list[0]
+        except Exception as e:
+            return JsonResponse({'error': f'查询假名失败: {str(e)}'}, status=500)
         
         # 获取或创建用户进度记录
         progress, created = UserProgress.objects.get_or_create(
@@ -100,6 +109,9 @@ def log_result(request):
         
         progress.last_practiced = timezone.now()
         progress.save()
+        
+        # 添加调试信息
+        print(f"DEBUG: log_result - user_id={user_id}, romaji='{romaji}', correct={correct}, created={created}, progress_id={progress.id}")
         
         return JsonResponse({
             'message': '记录成功',
