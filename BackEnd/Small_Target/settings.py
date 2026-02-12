@@ -90,7 +90,7 @@ SIMPLE_JWT = {
     # 加密算法
     'ALGORITHM': 'HS256',
     # 密钥（生产环境建议改为环境变量，避免硬编码）
-    'SIGNING_KEY': os.environ.get('DJANGO_JWT_SECRET', 'small-target-2024-secret-key'),
+    'SIGNING_KEY': os.environ.get('DJANGO_JWT_SECRET', 'small-target-2024-secret-key-for-jwt-authentication'),
     # 请求头中 Token 的前缀
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
@@ -122,13 +122,41 @@ WSGI_APPLICATION = 'Small_Target.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+# 数据库HOST动态配置
+import os
+import socket
+
+def get_database_host():
+    """根据运行环境动态确定数据库HOST"""
+    # 优先级1: 环境变量直接指定
+    custom_host = os.environ.get('DATABASE_HOST')
+    if custom_host:
+        return custom_host
+    
+    # 优先级2: 通过部署环境变量判断
+    server_ip = '43.137.41.36'
+    if os.environ.get('DEPLOY_ENV') == 'production':
+        return server_ip
+    
+    # 优先级3: 通过当前机器IP判断
+    try:
+        hostname = socket.gethostname()
+        local_ip = socket.gethostbyname(hostname)
+        if local_ip == server_ip:
+            return server_ip
+    except:
+        pass
+    
+    # 默认返回本地开发配置
+    return 'localhost'
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'smallTarget',
+        'NAME': 'smalltarget',
         'USER': 'postgres',
         'PASSWORD': 'password',
-        'HOST': 'localhost',  # 数据库地址
+        'HOST': get_database_host(),  # 动态确定数据库地址
         'PORT': '5432',       # PostgreSQL默认端口
     }
 }
