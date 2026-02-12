@@ -10,7 +10,7 @@ export const useUserStore = defineStore('user', {
     // 登录接口
     async login(formData) {
       // console.log('发送登录请求:', formData)
-      const res = await request.post('/login/', formData)
+      const res = await request.post('/api/login/', formData)
       // console.log('登录响应:', res)
       // console.log('响应数据结构:', res.data)
       this.token = res.data.data.token
@@ -27,7 +27,7 @@ export const useUserStore = defineStore('user', {
     },
     // 获取用户信息
     async getUserInfo() {
-      const res = await request.get('/login/user/info/')
+      const res = await request.get('/api/login/user/info/')
       this.userInfo = res.data.data  // 提取实际的用户数据
       return res
     }

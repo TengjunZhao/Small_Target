@@ -302,7 +302,7 @@ import { ref, reactive, onMounted, nextTick, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete, Refresh, Calendar, ArrowLeft } from '@element-plus/icons-vue'
 import {formatDateForDatabase } from '@/utils/dateUtils.js'
-import axios from 'axios'
+import request from '@/utils/requests.js'
 import Gantt from 'frappe-gantt'
 import '../assets/frappe-gantt.css'
 
@@ -401,8 +401,6 @@ const treeProps = ref({
 // 新增：树形组件展开状态管理（遵循内存中的最佳实践）
 const expandedKeys = ref([])
 
-// API基础URL
-const API_BASE = '/api'
 
 // 生命周期钩子
 onMounted(() => {
@@ -429,7 +427,7 @@ const handleBack = () => {
 
 const loadProjects = async () => {
   try {
-    const response = await axios.get(`${API_BASE}/projects/projects/`)
+    const response = await request.get('/api/projects/projects/')
     projects.value = Array.isArray(response.data) ? response.data : []
   } catch (error) {
     ElMessage.error('加载项目列表失败')
@@ -459,7 +457,7 @@ const selectProject = async (project) => {
   }
 
   try {
-    const response = await axios.get(`${API_BASE}/projects/projects/${project.id}/gantt_data/`)
+    const response = await request.get(`/api/projects/projects/${project.id}/gantt_data/`)
     const backendGanttData = response.data
     const formattedGanttData = backendGanttData.map(task => ({
       id: task.id.toString(),
@@ -507,7 +505,7 @@ const selectProject = async (project) => {
 
 const loadTaskTreeData = async (projectId) => {
   try {
-    const response = await axios.get(`${API_BASE}/projects/projects/${projectId}/`)
+    const response = await request.get(`/api/projects/projects/${projectId}/`)
     // 冲突解决：保留完整的数据转换和展开状态管理逻辑
     // 后端已经返回了完整的树形结构，直接使用
     let treeData = response.data.tasks || []
@@ -642,10 +640,10 @@ const saveProject = async () => {
     }
 
     if (editingProject.value) {
-      await axios.put(`${API_BASE}/projects/projects/${editingProject.value.id}/`, projectData);
+      await request.put(`/api/projects/projects/${editingProject.value.id}/`, projectData);
       ElMessage.success('项目更新成功');
     } else {
-      await axios.post(`${API_BASE}/projects/projects/`, projectData);
+      await request.post(`/api/projects/projects/`, projectData);
       ElMessage.success('项目创建成功');
     }
 
@@ -688,7 +686,7 @@ const deleteProject = async (project) => {
       cancelButtonText: '取消',
       type: 'warning'
     })
-    await axios.delete(`${API_BASE}/projects/projects/${project.id}/`)
+    await request.delete(`/api/projects/projects/${project.id}/`)
     ElMessage.success('项目删除成功')
     loadProjects()
     if (selectedProject.value?.id === project.id) {
@@ -849,7 +847,7 @@ const deleteTask = async (task) => {
       '确认删除',
       { type: 'warning' }
     )
-    await axios.delete(`${API_BASE}/projects/tasks/${task.id}/`)
+    await request.delete(`/api/projects/tasks/${task.id}/`)
     ElMessage.success('任务删除成功')
     await refreshTaskTree()
   } catch (error) {
@@ -895,11 +893,11 @@ const saveTask = async () => {
     }
 
     if (editingTask.value) {
-      await axios.put(`${API_BASE}/projects/tasks/${editingTask.value.id}/`, taskData);
+      await request.put(`/api/projects/tasks/${editingTask.value.id}/`, taskData);
       ElMessage.success('任务更新成功');
     } else {
       console.log('发送的任务数据:', taskData);  // 调试信息
-      await axios.post(`${API_BASE}/projects/tasks/`, taskData);
+      await request.post(`/api/projects/tasks/`, taskData);
       ElMessage.success('任务创建成功');
     }
 

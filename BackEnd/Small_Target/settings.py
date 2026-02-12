@@ -61,7 +61,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    # 'login.middleware.auth.AuthMiddleware',  # 暂时禁用自定义认证中间件进行测试
+    'login.middleware.auth.AuthMiddleware',  # 启用自定义认证中间件
 ]
 
 # Allow all origins for development; tighten in production

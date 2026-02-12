@@ -117,9 +117,7 @@ const fetchNextKana = async () => {
     // console.log('localStorage中的token:', localStorage.getItem('token'))
 
     // 获取下一题
-    const res = await request.get(`/kana/next/`,
-      {params: { user_id: userStore.userInfo.id }}
-    )
+    const res = await request.get(`/api/kana/next/`)
     const data = res.data
     currentKana.value = {
       hira: data.hira,
@@ -143,8 +141,7 @@ const fetchNextKana = async () => {
 
 const logResult = async (correct, kanaId) => {
   try {
-    const response = await request.post('/kana/log/', {
-      user_id: userStore.userInfo.id,
+    const response = await request.post('/api/kana/log/', {
       kana_id: kanaId,  // 使用kana_id代替romaji
       correct
     })
@@ -181,8 +178,8 @@ const handleAnswerClick = async (option) => {
 
 const fetchErrorList = async () => {
   try {
-    const res = await request.get(`/kana/errors/`, {
-      params: { user_id: userStore.userInfo.id, limit: 10 }
+    const res = await request.get(`/api/kana/errors/`, {
+      params: { limit: 10 }
     })
     const data = res.data
     errorKanaList.value = data.error_list || []

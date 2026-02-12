@@ -36,7 +36,9 @@ class GetNextKanaView(APIView):
         print(f"DEBUG: Authorization header: {request.META.get('HTTP_AUTHORIZATION', 'None')}")
         
         try:
-            user_id = int(request.GET.get('user_id', 1))
+            # 从认证用户获取user_id
+            user_id = request.user.id
+            print(f"DEBUG: Using authenticated user_id: {user_id}")
             
             # 获取所有假名
             all_kana = list(Kana.objects.all())
@@ -139,7 +141,9 @@ class GetErrorListView(APIView):
         print(f"DEBUG ErrorList: Authorization header: {request.META.get('HTTP_AUTHORIZATION', 'None')}")
         
         try:
-            user_id = int(request.GET.get('user_id', 1))
+            # 从认证用户获取user_id
+            user_id = request.user.id
+            print(f"DEBUG: Using authenticated user_id: {user_id}")
             limit = int(request.GET.get('limit', 10))
             
             # 获取错误次数较多的假名（错误次数大于正确次数）
