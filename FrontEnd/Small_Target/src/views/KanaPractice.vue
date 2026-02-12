@@ -8,14 +8,14 @@
           <span class="bg-white bg-opacity-20 text-white px-4 py-2 rounded-full font-semibold backdrop-blur-sm">❌ 错误: {{ wrongCount }}</span>
         </div>
       </div>
-      
+
       <div class="bg-white rounded-2xl shadow-2xl p-8 mb-8 text-center">
         <div class="text-8xl md:text-9xl font-bold text-gray-800 mb-6">{{ currentKanaDisplay }}</div>
         <div v-if="showHint" class="text-blue-500 text-lg italic p-4 bg-blue-50 rounded-lg border-l-4 border-blue-500">
           提示: 点击下方选项选择正确的罗马音
         </div>
       </div>
-      
+
       <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-8 max-w-2xl mx-auto">
         <button
           v-for="(option, index) in options"
@@ -32,7 +32,7 @@
           {{ option }}
         </button>
       </div>
-      
+
       <div class="bg-white rounded-2xl shadow-2xl p-6 mb-6">
         <h3 class="text-gray-800 text-2xl font-bold text-center mb-6">🎯 练习统计</h3>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -53,7 +53,7 @@
             <div class="text-gray-600 font-medium">正确率</div>
           </div>
         </div>
-        
+
         <div class="border-t pt-6">
           <h4 class="text-gray-800 text-xl font-bold text-center mb-4">📚 错误记录（高频练习）</h4>
           <div class="max-h-60 overflow-y-auto">
@@ -72,9 +72,9 @@
           </div>
         </div>
       </div>
-      
+
       <div class="text-center">
-        <button 
+        <button
           class="px-6 py-3 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg"
           @click="resetPractice"
         >
@@ -87,7 +87,10 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-const userId = 1; // 简化：使用固定游客账户
+import request from '@/utils/requests.js' ;// 导入封装的axios实例
+import { useUserStore } from '@/stores/user.js';
+// 先打印 Token 状态
+const userStore = useUserStore()
 
 const currentKana = ref({ hira: '', kata: '', romaji: '', id: null })
 const currentKanaDisplay = ref('')
@@ -108,22 +111,29 @@ const accuracyRate = computed(() => {
 
 const fetchNextKana = async () => {
   try {
+    // console.log('用户信息:', userStore.userInfo)
+    // console.log('用户ID:', userStore.userInfo.id)
+    // console.log('当前token:', userStore.token)
+    // console.log('localStorage中的token:', localStorage.getItem('token'))
+
     // 获取下一题
-    const res = await fetch(`/api/kana/next/?user_id=${userId}`)
-    const data = await res.json()
-    currentKana.value = { 
-      hira: data.hira, 
-      kata: data.kata, 
+    const res = await request.get(`/kana/next/`,
+      {params: { user_id: userStore.userInfo.id }}
+    )
+    const data = res.data
+    currentKana.value = {
+      hira: data.hira,
+      kata: data.kata,
       romaji: data.romaji,
       id: data.id  // 添加id字段
     }
     currentKanaDisplay.value = Math.random() > 0.5 ? data.hira : data.kata
     options.value = data.options || []
-    
+
     // 重置答题状态
     isAnswered.value = false
     selectedOption.value = ''
-    
+
     // 获取最新的错误记录
     await fetchErrorList()
   } catch (e) {
@@ -133,16 +143,12 @@ const fetchNextKana = async () => {
 
 const logResult = async (correct, kanaId) => {
   try {
-    const response = await fetch('/api/kana/log/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        user_id: userId, 
-        kana_id: kanaId,  // 使用kana_id代替romaji
-        correct 
-      }),
+    const response = await request.post('/kana/log/', {
+      user_id: userStore.userInfo.id,
+      kana_id: kanaId,  // 使用kana_id代替romaji
+      correct
     })
-    const result = await response.json()
+    const result = response.data
     console.log('记录结果:', result)
   } catch (e) {
     console.error('记录结果失败:', e)
@@ -153,19 +159,19 @@ const handleAnswerClick = async (option) => {
   const isCorrect = option === currentKana.value.romaji
   isAnswered.value = true
   selectedOption.value = option
-  
+
   if (isCorrect) {
     correctCount.value++
   } else {
     wrongCount.value++
   }
-  
+
   // 隐藏提示，显示答案
   showHint.value = false
-  
+
   // 记录结果，传递kana_id
   await logResult(isCorrect, currentKana.value.id)
-  
+
   // 延迟获取下一题
   setTimeout(() => {
     showHint.value = true
@@ -175,8 +181,10 @@ const handleAnswerClick = async (option) => {
 
 const fetchErrorList = async () => {
   try {
-    const res = await fetch(`/api/kana/errors/?user_id=${userId}&limit=10`)
-    const data = await res.json()
+    const res = await request.get(`/kana/errors/`, {
+      params: { user_id: userStore.userInfo.id, limit: 10 }
+    })
+    const data = res.data
     errorKanaList.value = data.error_list || []
   } catch (e) {
     console.error('获取错误列表失败:', e)

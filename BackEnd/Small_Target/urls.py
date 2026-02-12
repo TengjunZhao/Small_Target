@@ -5,6 +5,7 @@ URL configuration for Small_Target project.
 from django.contrib import admin
 from django.urls import path, include
 from django.http import JsonResponse
+from rest_framework_simplejwt.views import TokenRefreshView
 
 def home_view(request):
     return JsonResponse({
@@ -23,4 +24,6 @@ urlpatterns = [
     path('api/kana/', include('kana.urls')),
     # Project management API
     path('api/projects/', include('project_management.urls')),
+    path('api/login/', include('login.urls')),
+    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 ]

@@ -3,7 +3,7 @@ from . import views
 
 urlpatterns = [
     path('', views.index, name='kana_index'),
-    path('next/', views.get_next_kana, name='kana_next'),
-    path('log/', views.log_result, name='kana_log'),
-    path('errors/', views.get_error_list, name='kana_errors'),
+    path('next/', views.GetNextKanaView.as_view(), name='kana_next'),
+    path('log/', views.LogResultView.as_view(), name='kana_log'),
+    path('errors/', views.GetErrorListView.as_view(), name='kana_errors'),
 ]

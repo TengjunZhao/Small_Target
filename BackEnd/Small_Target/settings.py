@@ -9,7 +9,8 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
-
+import os
+from datetime import timedelta
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -23,9 +24,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-7zltah3jm2sur+&rwg9lvw_vh*hsjt8p&)404mmx$iv^t=py3s'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    '127.0.0.1',        # 修正笔误：127.0.01 → 127.0.0.1
+    'localhost',        # 兼容localhost访问
+    'tension601.site',  # 外网域名访问（核心，解决域名访问400）
+    '43.137.41.36'      # 公网IP（可选，若需要IP访问则保留）
+]
 
 
 # Application definition
@@ -40,22 +46,57 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework',
     'kana',
-    'project_management'
+    'project_management',
+    'login'
 ]
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    # 跨域中间件
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # 'login.middleware.auth.AuthMiddleware',  # 暂时禁用自定义认证中间件进行测试
 ]
 
 # Allow all origins for development; tighten in production
 CORS_ALLOW_ALL_ORIGINS = True
+# 允许指定域名(生产环境用)
+# CORS_ALLOWED_ORIGINS = [
+#     "http://localhost:5173",
+#     "http://127.0.0.1:5173",
+# ]
+# 允许携带 Cookie（如需）
+CORS_ALLOW_CREDENTIALS = True
+
+# ========== 4. DRF + JWT 配置 ==========
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+}
+
+# JWT 有效期配置
+SIMPLE_JWT = {
+    # Access Token 有效期（2小时）
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=2),
+    # Refresh Token 有效期（7天，用于刷新 Access Token）
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    # 加密算法
+    'ALGORITHM': 'HS256',
+    # 密钥（生产环境建议改为环境变量，避免硬编码）
+    'SIGNING_KEY': os.environ.get('DJANGO_JWT_SECRET', 'small-target-2024-secret-key'),
+    # 请求头中 Token 的前缀
+    'AUTH_HEADER_TYPES': ('Bearer',),
+}
+
+# 登录后重定向地址（前端登录页）
+LOGIN_URL = 'http://localhost:5173/login'
 
 ROOT_URLCONF = 'Small_Target.urls'
 
