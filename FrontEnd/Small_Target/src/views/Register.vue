@@ -1,5 +1,5 @@
 <template>
-  <div class="register-container">
+  <div class="auth-container">
     <h2>用户注册</h2>
     <form @submit.prevent="handleRegister">
       <div class="form-item">
@@ -51,13 +51,13 @@
       </div>
       <button
         type="submit"
-        class="register-btn"
+        class="auth-btn"
         :disabled="!isFormValid"
       >
         注册
       </button>
     </form>
-    <div class="login-link">
+    <div class="auth-link">
       已有账号？<router-link to="/">立即登录</router-link>
     </div>
   </div>
@@ -149,88 +149,4 @@ const handleRegister = async () => {
 }
 </script>
 
-<style scoped>
-.register-container {
-  width: 400px;
-  margin: 50px auto;
-  padding: 30px;
-  border: 1px solid #eee;
-  border-radius: 8px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
-}
-
-.register-container h2 {
-  text-align: center;
-  margin-bottom: 30px;
-  color: #333;
-}
-
-.form-item {
-  margin-bottom: 20px;
-}
-
-.form-item label {
-  display: block;
-  margin-bottom: 6px;
-  font-weight: 500;
-  color: #555;
-}
-
-.form-item input {
-  width: 100%;
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
-  box-sizing: border-box;
-}
-
-.form-item input:focus {
-  outline: none;
-  border-color: #409eff;
-  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
-}
-
-.error-tip {
-  color: #f56c6c;
-  font-size: 12px;
-  margin-top: 4px;
-}
-
-.register-btn {
-  width: 100%;
-  padding: 12px;
-  background: #409eff;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 16px;
-  font-weight: 500;
-  margin-top: 10px;
-}
-
-.register-btn:hover:not(:disabled) {
-  background: #66b1ff;
-}
-
-.register-btn:disabled {
-  background: #a0cfff;
-  cursor: not-allowed;
-}
-
-.login-link {
-  text-align: center;
-  margin-top: 20px;
-  color: #666;
-}
-
-.login-link a {
-  color: #409eff;
-  text-decoration: none;
-}
-
-.login-link a:hover {
-  text-decoration: underline;
-}
-</style>
+<!-- 使用全局 main.css 样式，无需额外 scoped 样式 -->

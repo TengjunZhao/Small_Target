@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-green-400 to-indigo-300 p-4 sm:p-6 md:p-8">
+  <div class="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 md:p-8">
     <!-- 标题区域 -->
     <div class="mb-10 text-center">
       <h1 class="text-white text-4xl sm:text-5xl md:text-6xl font-bold mb-3 drop-shadow-lg">

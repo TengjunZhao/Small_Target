@@ -1,5 +1,5 @@
 <template>
-  <div class="login-container">
+  <div class="auth-container">
     <h2>系统登录</h2>
     <form @submit.prevent="handleLogin">
       <div class="form-item">
@@ -10,12 +10,12 @@
         <label>密码：</label>
         <input v-model="form.password" type="password" placeholder="请输入密码" required />
       </div>
-      <button type="submit" class="login-btn">登录</button>
+      <button type="submit" class="auth-btn">登录</button>
     </form>
-    <div class="register-link">
+    <div class="auth-link">
       还没有账号？<router-link to="/register">立即注册</router-link>
     </div>
-    <div v-if="route.query.redirect" class="redirect-info">
+    <div v-if="route.query.redirect" class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-sm text-center">
       登录后将跳转到: {{ route.query.redirect }}
     </div>
   </div>
@@ -75,58 +75,4 @@ const handleLogin = async () => {
 }
 </script>
 
-<style scoped>
-.login-container {
-  width: 400px;
-  margin: 100px auto;
-  padding: 20px;
-  border: 1px solid #eee;
-  border-radius: 8px;
-}
-.form-item {
-  margin-bottom: 16px;
-}
-.form-item input {
-  width: 100%;
-  padding: 8px;
-  margin-top: 4px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-}
-.login-btn {
-  width: 100%;
-  padding: 10px;
-  background: #409eff;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.register-link {
-  text-align: center;
-  margin: 20px 0;
-  color: #666;
-}
-
-.register-link a {
-  color: #409eff;
-  text-decoration: none;
-  font-weight: 500;
-}
-
-.register-link a:hover {
-  text-decoration: underline;
-}
-
-.redirect-info {
-  margin-top: 16px;
-  padding: 8px;
-  background-color: #f0f9ff;
-  border: 1px solid #bae6fd;
-  border-radius: 4px;
-  color: #0369a1;
-  font-size: 14px;
-  text-align: center;
-}
-</style>
+<!-- 使用全局 main.css 样式，无需额外 scoped 样式 -->
