@@ -38,6 +38,10 @@ class TaskViewSet(viewsets.ModelViewSet):
     queryset = Task.objects.all()
     serializer_class = TaskSerializer
     
+    def create(self, request, *args, **kwargs):
+        """创建任务"""
+        return super().create(request, *args, **kwargs)
+    
     def get_queryset(self):
         project_id = self.request.query_params.get('project_id')
         if project_id:
