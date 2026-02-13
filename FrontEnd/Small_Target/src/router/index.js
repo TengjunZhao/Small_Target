@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import Login from '@/views/Login.vue'
+import Login from '@/views/Login.vue';
+import Register from '@/views/Register.vue';
 import Home from '@/views/Home.vue'; // 主页面
 import KanaPractice from '@/views/KanaPractice.vue'; // 50音练习组件
 import ProjectManagement from '@/views/ProjectManagement.vue'; // 项目管理组件
@@ -12,6 +13,13 @@ const routes = [
     name: 'login',
     component: Login,
     meta: { requiresAuth: false } // 登录页无需鉴权
+  },
+  // 注册页面
+  {
+    path: '/register',
+    name: 'register',
+    component: Register,
+    meta: { requiresAuth: false } // 注册页无需鉴权
   },
   // 以下所有页面均需要登录
   {

@@ -12,6 +12,9 @@
       </div>
       <button type="submit" class="login-btn">登录</button>
     </form>
+    <div class="register-link">
+      还没有账号？<router-link to="/register">立即注册</router-link>
+    </div>
     <div v-if="route.query.redirect" class="redirect-info">
       登录后将跳转到: {{ route.query.redirect }}
     </div>
@@ -98,6 +101,22 @@ const handleLogin = async () => {
   border: none;
   border-radius: 4px;
   cursor: pointer;
+}
+
+.register-link {
+  text-align: center;
+  margin: 20px 0;
+  color: #666;
+}
+
+.register-link a {
+  color: #409eff;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.register-link a:hover {
+  text-decoration: underline;
 }
 
 .redirect-info {

@@ -7,15 +7,19 @@ export const useUserStore = defineStore('user', {
     userInfo: {}
   }),
   actions: {
+    // 设置token
+    setToken(token) {
+      this.token = token
+      localStorage.setItem('token', token)
+    },
     // 登录接口
     async login(formData) {
       // console.log('发送登录请求:', formData)
       const res = await request.post('login/', formData)
       // console.log('登录响应:', res)
       // console.log('响应数据结构:', res.data)
-      this.token = res.data.data.token
+      this.setToken(res.data.data.token)
       // console.log('设置token:', this.token)
-      localStorage.setItem('token', this.token) // 存入本地缓存
       // console.log('localStorage中的token:', localStorage.getItem('token'))
       return res
     },
