@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import Login from '@/views/Login.vue';
 import Register from '@/views/Register.vue';
-import Home from '@/views/Home.vue'; // 主页面
+import Home from '@/views/home.vue'; // 主页面
 import KanaPractice from '@/views/KanaPractice.vue'; // 50音练习组件
 import ProjectManagement from '@/views/ProjectManagement.vue'; // 项目管理组件
 
