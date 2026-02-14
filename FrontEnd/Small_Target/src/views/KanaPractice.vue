@@ -88,9 +88,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import request from '@/utils/requests.js' ;// 导入封装的axios实例
-import { useUserStore } from '@/stores/user.js';
-// 先打印 Token 状态
-const userStore = useUserStore()
+// import { useUserStore } from '@/stores/user.js';  // 暂时注释，后续可能需要
 
 const currentKana = ref({ hira: '', kata: '', romaji: '', id: null })
 const currentKanaDisplay = ref('')
@@ -111,11 +109,6 @@ const accuracyRate = computed(() => {
 
 const fetchNextKana = async () => {
   try {
-    // console.log('用户信息:', userStore.userInfo)
-    // console.log('用户ID:', userStore.userInfo.id)
-    // console.log('当前token:', userStore.token)
-    // console.log('localStorage中的token:', localStorage.getItem('token'))
-
     // 获取下一题
     const res = await request.get(`kana/next/`)
     const data = res.data
@@ -142,7 +135,7 @@ const fetchNextKana = async () => {
 const logResult = async (correct, kanaId) => {
   try {
     const response = await request.post('kana/log/', {
-      kana_id: kanaId,  // 使用kana_id代替romaji
+      kana_id: kanaId,
       correct
     })
     const result = response.data

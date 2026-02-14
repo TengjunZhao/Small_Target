@@ -83,7 +83,8 @@ class LogResultView(APIView):
         """记录练习结果"""
         try:
             data = request.data
-            user_id = data.get('user_id', 1)
+            # 从认证用户获取实际的user_id，不再使用固定的1
+            user_id = request.user.id
             kana_id = data.get('kana_id')  # 修改为kana_id
             correct = data.get('correct', False)
             
