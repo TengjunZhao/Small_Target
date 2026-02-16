@@ -9,6 +9,19 @@ export default defineConfig({
     vue(),
     vueDevTools(),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          echarts: ['echarts'],
+          elementPlus: ['element-plus'],
+          pinia: ['pinia'],
+          tailwindcss : ['tailwindcss'],
+          frappegantt: ['frappe-gantt'],
+        }
+      }
+    }
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))
