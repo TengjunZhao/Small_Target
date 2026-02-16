@@ -3,6 +3,10 @@
     <!-- 顶部导航栏 - 修复样式，全屏宽度 -->
     <header class="page-header">
       <div class="header-inner">
+        <!-- 汉堡按钮 - 移动端显示 -->
+        <button class="hamburger-btn" @click="toggleSidebar">
+          <span class="hamburger-icon"></span>
+        </button>
         <h1 class="page-title">家庭资产负债分析系统</h1>
         <!-- 用户/家庭选择器 - 修复样式 -->
         <div class="user-family-selector">
@@ -27,9 +31,9 @@
     </header>
 
     <!-- 主体内容 - 全屏填充 -->
-    <main class="main-content">
+    <main class="main-content" :class="{ 'sidebar-hidden': !sidebarVisible }">
       <!-- 侧边栏 - 固定宽度，高度全屏 -->
-      <aside class="sidebar">
+      <aside class="sidebar" :class="{ 'sidebar-show': sidebarVisible }">
         <div class="menu-list">
           <div class="menu-item active">
             <span>财务总览</span>
@@ -109,12 +113,28 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
 import * as echarts from 'echarts';
 
 // 响应式数据
 const selectedFamily = ref('family1');
 const selectedUser = ref('user1');
+// 侧边栏显示状态
+const sidebarVisible = ref(true);
+
+// 监听屏幕尺寸变化，自动调整侧边栏状态
+const handleResize = () => {
+  const isMobile = window.innerWidth < 768;
+  sidebarVisible.value = !isMobile;
+  resizeCharts();
+};
+
+// 切换侧边栏显示/隐藏
+const toggleSidebar = () => {
+  sidebarVisible.value = !sidebarVisible.value;
+  // 延迟执行，确保DOM更新后再调整图表大小
+  setTimeout(resizeCharts, 100);
+};
 
 // 图表实例
 let trendChart = null;
@@ -222,12 +242,14 @@ const resizeCharts = () => {
 
 // 生命周期
 onMounted(() => {
+  // 初始化时判断屏幕尺寸
+  handleResize();
   initCharts();
-  window.addEventListener('resize', resizeCharts);
+  window.addEventListener('resize', handleResize);
 });
 
 onUnmounted(() => {
-  window.removeEventListener('resize', resizeCharts);
+  window.removeEventListener('resize', handleResize);
   if (trendChart) trendChart.dispose();
   if (structureChart) structureChart.dispose();
   if (radarChart) radarChart.dispose();
@@ -255,6 +277,7 @@ onUnmounted(() => {
   align-items: center;
   padding: 0 20px;
   box-sizing: border-box;
+  position: relative;
 }
 
 .header-inner {
@@ -263,6 +286,45 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+/* 汉堡按钮样式 */
+.hamburger-btn {
+  display: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  margin-right: 10px;
+  z-index: 100;
+}
+
+.hamburger-icon {
+  display: block;
+  width: 24px;
+  height: 2px;
+  background-color: #333;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.hamburger-icon::before,
+.hamburger-icon::after {
+  content: '';
+  position: absolute;
+  width: 24px;
+  height: 2px;
+  background-color: #333;
+  left: 0;
+  transition: all 0.3s ease;
+}
+
+.hamburger-icon::before {
+  top: -8px;
+}
+
+.hamburger-icon::after {
+  bottom: -8px;
 }
 
 .page-title {
@@ -306,9 +368,15 @@ onUnmounted(() => {
   width: 100%;
   height: calc(100vh - 60px);
   overflow: hidden;
+  transition: all 0.3s ease;
 }
 
-/* 侧边栏 - 固定宽度，全屏高度 */
+/* 侧边栏隐藏时的样式 */
+.main-content.sidebar-hidden .content-wrapper {
+  width: 100%;
+}
+
+/* 侧边栏 - 固定宽度，高度全屏 */
 .sidebar {
   width: 200px;
   height: 100%;
@@ -316,6 +384,19 @@ onUnmounted(() => {
   border-right: 1px solid #e6e6e6;
   padding: 20px 0;
   box-sizing: border-box;
+  transition: all 0.3s ease;
+  transform: translateX(-100%);
+  position: absolute;
+  z-index: 99;
+  top: 60px;
+  left: 0;
+  height: calc(100vh - 60px);
+}
+
+/* 侧边栏显示样式 */
+.sidebar.sidebar-show {
+  transform: translateX(0);
+  box-shadow: 2px 0 8px rgba(0,0,0,0.1);
 }
 
 .menu-list {
@@ -362,6 +443,7 @@ onUnmounted(() => {
   box-sizing: border-box;
   overflow-y: auto;
   overflow-x: hidden;
+  transition: all 0.3s ease;
 }
 
 /* 数据卡片 - 修复布局 */
@@ -456,23 +538,64 @@ onUnmounted(() => {
 }
 
 @media (max-width: 768px) {
+  /* 移动端显示汉堡按钮 */
+  .hamburger-btn {
+    display: block;
+  }
+
+  /* 移动端默认隐藏侧边栏 */
+  .sidebar {
+    transform: translateX(-100%);
+  }
+
+  .sidebar.sidebar-show {
+    transform: translateX(0);
+  }
+
   .sidebar {
     width: 180px;
   }
+
   .card-row {
     grid-template-columns: 1fr;
   }
+
   .user-family-selector {
     flex-direction: column;
     gap: 5px;
     align-items: flex-end;
   }
+
   .page-header {
     height: auto;
     padding: 10px 20px;
   }
+
   .main-content {
     height: calc(100vh - 80px);
+  }
+
+  .header-inner {
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .page-title {
+    font-size: 16px;
+  }
+}
+
+/* 桌面端样式 */
+@media (min-width: 769px) {
+  .sidebar {
+    transform: translateX(0) !important;
+    position: static;
+    height: 100%;
+    box-shadow: none;
+  }
+
+  .main-content.sidebar-hidden .sidebar {
+    display: block;
   }
 }
 </style>
