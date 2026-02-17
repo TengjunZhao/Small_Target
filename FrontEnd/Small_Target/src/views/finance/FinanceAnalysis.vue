@@ -35,9 +35,9 @@
       <!-- 侧边栏 - 固定宽度，高度全屏 -->
       <aside class="sidebar" :class="{ 'sidebar-show': sidebarVisible }">
         <div class="menu-list">
-          <div class="menu-item active">
+          <router-link to="/finance-analysis" class="menu-item active">
             <span>财务总览</span>
-          </div>
+          </router-link>
           <div class="menu-item">
             <span>资产负债</span>
           </div>
@@ -47,9 +47,9 @@
           <div class="submenu-item">
             <span>负债管理</span>
           </div>
-          <div class="menu-item">
+          <router-link to="/revenue-expend" class="menu-item">
             <span>收支管理</span>
-          </div>
+          </router-link>
           <div class="menu-item">
             <span>财务诊断</span>
           </div>

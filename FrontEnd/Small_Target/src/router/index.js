@@ -5,7 +5,8 @@ import Register from '@/views/Register.vue';
 import Home from '@/views/home.vue'; // 主页面
 import KanaPractice from '@/views/KanaPractice.vue'; // 50音练习组件
 import ProjectManagement from '@/views/ProjectManagement.vue'; // 项目管理组件
-import FinanceAnalysis from '@/views/FinanceAnalysis.vue'; // 家庭资产负债分析组件
+import FinanceAnalysis from '@/views/finance/FinanceAnalysis.vue'; // 家庭资产负债分析组件
+import RevenueExpend from "@/views/finance/RevenueExpend.vue";
 
 const routes = [
   // 登录页面
@@ -45,6 +46,12 @@ const routes = [
     path: '/finance-analysis',
     name: 'finance-analysis',
     component: FinanceAnalysis,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/revenue-expend',
+    name: 'revenue-expend',
+    component: RevenueExpend,
     meta: { requiresAuth: true }
   },
 ]
