@@ -173,17 +173,19 @@ class ExpendMerged(models.Model):
         ('wechat', '微信'),
         ('manual', '手动录入'),
     )
-    transaction_id = models.CharField(max_length=100, unique=True, verbose_name="交易ID")
-    family = models.ForeignKey(Family, on_delete=models.CASCADE, verbose_name="所属家庭")
+    transaction_id = models.CharField(max_length=100, primary_key=True, verbose_name="交易ID")
     expend_channel = models.CharField(max_length=10, choices=EXPEND_CHANNEL_CHOICES, verbose_name="收支渠道")
-    budget = models.ForeignKey(BudgetCategory, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="支出类目")
+    budget = models.ForeignKey(BudgetCategory, on_delete=models.SET_NULL, null=True, blank=True,
+                               verbose_name="支出类目")
     commodity = models.CharField(max_length=100, null=True, blank=True, verbose_name="商品/备注")
     in_out = models.CharField(max_length=5, verbose_name="收支类型（收入/支出）")
-    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="归属人")
+    person = models.CharField(max_length=100, null=True, blank=True, verbose_name="交易对方")
     price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="金额（元）")
-    status = models.CharField(max_length=255, null=True, blank=True, verbose_name="交易状态")
+    status = models.CharField(max_length=50, null=True, blank=True, verbose_name="交易状态")
     trade_time = models.DateTimeField(verbose_name="交易时间")
-    create_time = models.DateTimeField(default=timezone.now, verbose_name="创建时间")
+    belonging = models.CharField(max_length=100, null=True, blank=True, verbose_name="归属")
+    family = models.ForeignKey(Family, on_delete=models.CASCADE, verbose_name="所属家庭")
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="归属人")
 
     class Meta:
         verbose_name = "合并收支"
