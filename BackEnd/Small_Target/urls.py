@@ -25,5 +25,7 @@ urlpatterns = [
     # Project management API
     path('api/projects/', include('project_management.urls')),
     path('api/login/', include('login.urls')),
+    # Finance API
+    path('api/finance/', include('finance.urls')),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 ]

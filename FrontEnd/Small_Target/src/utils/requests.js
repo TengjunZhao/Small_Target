@@ -45,4 +45,55 @@ service.interceptors.response.use(
   }
 )
 
+// API 接口模块化封装
+
+// 认证相关API
+export const authAPI = {
+  // 登录
+  login: (data) => service.post('/login/', data),
+
+  // 注册
+  register: (data) => service.post('/login/register/', data),
+
+  // 获取用户信息
+  getUserInfo: () => service.get('/login/user/info/'),
+
+  // 刷新token
+  refreshToken: () => service.post('/token/refresh/')
+}
+
+// 项目管理相关API
+export const projectAPI = {
+  // 项目相关
+  getProjects: () => service.get('/projects/projects/'),
+  createProject: (data) => service.post('/projects/projects/', data),
+  updateProject: (id, data) => service.put(`/projects/projects/${id}/`, data),
+  deleteProject: (id) => service.delete(`/projects/projects/${id}/`),
+
+  // 任务相关
+  getTasks: (projectId) => service.get(`/projects/projects/${projectId}/`),
+  createTask: (data) => service.post('/projects/tasks/', data),
+  updateTask: (id, data) => service.put(`/projects/tasks/${id}/`, data),
+  deleteTask: (id) => service.delete(`/projects/tasks/${id}/`)
+}
+
+// 财务相关API
+export const financeAPI = {
+  // 账单导入
+  importBill: (data) => service.post('/finance/import-bill/', data),
+
+  // 用户邮箱配置
+  getUserEmailConfig: () => service.get('/finance/user-email-config/'),
+  setUserEmailConfig: (data) => service.post('/finance/user-email-config/', data)
+}
+
+// Kana相关API
+export const kanaAPI = {
+  getQuestions: () => service.get('/kana/questions/'),
+  submitAnswer: (data) => service.post('/kana/submit-answer/', data),
+  getProgress: () => service.get('/kana/progress/'),
+  resetProgress: () => service.post('/kana/reset-progress/')
+}
+
+// 默认导出axios实例
 export default service

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import request from '@/utils/requests.js'
+import { authAPI } from '@/utils/requests.js'
 
 export const useUserStore = defineStore('user', {
   state: () => ({
@@ -14,13 +14,8 @@ export const useUserStore = defineStore('user', {
     },
     // 登录接口
     async login(formData) {
-      // console.log('发送登录请求:', formData)
-      const res = await request.post('login/', formData)
-      // console.log('登录响应:', res)
-      // console.log('响应数据结构:', res.data)
+      const res = await authAPI.login(formData)
       this.setToken(res.data.data.token)
-      // console.log('设置token:', this.token)
-      // console.log('localStorage中的token:', localStorage.getItem('token'))
       return res
     },
     // 退出登录
@@ -31,8 +26,8 @@ export const useUserStore = defineStore('user', {
     },
     // 获取用户信息
     async getUserInfo() {
-      const res = await request.get('login/user/info/')
-      this.userInfo = res.data.data  // 提取实际的用户数据
+      const res = await authAPI.getUserInfo()
+      this.userInfo = res.data.data
       return res
     }
   }

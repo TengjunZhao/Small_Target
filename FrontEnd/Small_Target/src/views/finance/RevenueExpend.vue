@@ -98,19 +98,21 @@
             <div class="import-form">
               <div class="form-row">
                 <div class="form-group">
-                  <label class="form-label">账单类型：</label>
-                  <select class="form-select" v-model="billType">
-                    <option value="alipay">支付宝账单</option>
-                    <option value="wechat">微信账单</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label class="form-label">账单密码：</label>
+                  <label class="form-label">支付宝账单密码：</label>
                   <input
                     type="password"
                     class="form-input"
-                    v-model="billPassword"
-                    placeholder="请输入账单导出密码"
+                    v-model="alipayPassword"
+                    placeholder="请输入支付宝账单导出密码"
+                  >
+                </div>
+                <div class="form-group">
+                  <label class="form-label">微信账单密码：</label>
+                  <input
+                    type="password"
+                    class="form-input"
+                    v-model="wechatPassword"
+                    placeholder="请输入微信账单导出密码"
                   >
                 </div>
                 <div class="form-group">
@@ -494,17 +496,35 @@ const handleFileUpload = (e) => {
   // 模拟文件上传处理
   console.log('上传文件：', e.target.files[0]);
 };
-const importBill = () => {
-  // 模拟导入逻辑
-  if (!billPassword.value) {
-    alert('请输入账单密码');
+const importBill = async () => {
+  // 验证输入
+  if (!alipayPassword.value && !wechatPassword.value) {
+    ElMessage.error('请至少输入一个账单密码');
     return;
   }
-  alert('账单导入成功，共识别到3笔支出记录');
+  
+  try {
+    // 调用账单导入API
+    const res = await financeAPI.importBill({
+      alipay_password: alipayPassword.value,
+      wechat_password: wechatPassword.value,
+      user: billUser.value
+    });
+    
+    if (res.data.code === 200) {
+      ElMessage.success('账单导入成功');
+      // 可以在这里更新待确认列表等UI
+    } else {
+      ElMessage.error(res.data.msg || '账单导入失败');
+    }
+  } catch (error) {
+    console.error('账单导入错误:', error);
+    ElMessage.error('账单导入失败，请稍后重试');
+  }
 };
 const resetImportForm = () => {
-  billType.value = 'alipay';
-  billPassword.value = '';
+  alipayPassword.value = '';
+  wechatPassword.value = '';
   billUser.value = 'user1';
 };
 const confirmExpense = (index) => {
@@ -673,8 +693,18 @@ watch(activeTab, (newVal) => {
   }
 });
 
-// 生命周期
-onMounted(() => {
+// 页面加载时获取用户邮箱配置
+onMounted(async () => {
+  try {
+    const res = await financeAPI.getUserEmailConfig();
+    if (res.data.code === 200) {
+      // 可以在这里处理邮箱配置信息
+      console.log('用户邮箱配置:', res.data.data);
+    }
+  } catch (error) {
+    console.error('获取邮箱配置失败:', error);
+  }
+  
   handleResize();
   window.addEventListener('resize', handleResize);
   // 初始进入分析页时初始化图表

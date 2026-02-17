@@ -68,7 +68,7 @@ import { ref, computed } from 'vue'
 import { useUserStore } from '@/stores/user.js'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import request from '@/utils/requests.js'
+import { authAPI } from '@/utils/requests.js'
 
 const form = ref({
   username: '',
@@ -117,7 +117,7 @@ const handleRegister = async () => {
     console.log('开始注册...')
 
     // 调用注册接口
-    const res = await request.post('/login/register/', {
+    const res = await authAPI.register({
       username: form.value.username,
       email: form.value.email,
       password: form.value.password

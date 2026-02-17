@@ -65,12 +65,13 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   const userStore = useUserStore()
 
-  /*console.log('路由守卫触发:', {
-    to: to.path,
-    from: from.path,
-    token: userStore.token ? 'exists' : 'null',
-    requiresAuth: to.meta.requiresAuth
-  })*/
+  /*console.log('=== 路由守卫触发 ===')
+  console.log('目标路径:', to.path)
+  console.log('来源路径:', from.path)
+  console.log('用户token状态:', userStore.token ? '存在' : '不存在')
+  console.log('localStorage中的access_token:', localStorage.getItem('access_token') || '空')
+  console.log('是否需要鉴权:', to.meta.requiresAuth)
+  console.log('==================')*/
 
   // 登录页面逻辑
   if (to.path === '/' || to.name === 'login') {
@@ -82,10 +83,10 @@ router.beforeEach((to, from, next) => {
   // 需要鉴权的页面
   if (to.meta.requiresAuth) {
     if (userStore.token) {
-      console.log('有token，允许访问受保护页面')
+      console.log('✅ 有token，允许访问受保护页面:', to.path)
       next()
     } else {
-      console.log('无token，重定向到登录页')
+      console.log('❌ 无token，重定向到登录页')
       next({ path: '/', query: { redirect: to.fullPath } })
     }
   } else {

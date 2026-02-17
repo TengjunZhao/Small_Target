@@ -5,3 +5,8 @@ psycopg2-binary==2.9.9
 djangorestframework-simplejwt
 python-dotenv
 dj-database-url
+beautifulsoup4==4.12.2
+requests==2.31.0
+pandas==2.1.4
+openpyxl==3.1.2
+charset-normalizer==3.3.2
