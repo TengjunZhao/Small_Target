@@ -163,7 +163,7 @@
                       <select class="form-select small-select" v-model="item.adjusted_sub_category">
                         <option value="">请选择</option>
                         <option
-                          v-for="category in budgetSubCategories"
+                          v-for="category in item.adjusted_sub_category"
                           :key="category"
                           :value="category"
                         >
@@ -359,33 +359,41 @@
                     type="date"
                     class="form-input small-input"
                     v-model="searchForm.startDate"
+                    @change="validateDateRange"
                   >
                   <span class="range-separator">至</span>
                   <input
                     type="date"
                     class="form-input small-input"
                     v-model="searchForm.endDate"
+                    @change="validateDateRange"
                   >
                 </div>
                 <div class="form-group inline-group">
                   <label class="form-label">支出分类：</label>
                   <select class="form-select small-select" v-model="searchForm.category">
                     <option value="">全部</option>
-                    <option value="food">餐饮美食</option>
-                    <option value="shopping">购物消费</option>
-                    <option value="transport">交通出行</option>
-                    <option value="housing">住房缴费</option>
-                    <option value="entertainment">休闲娱乐</option>
-                    <option value="other">其他支出</option>
+                    <option
+                      v-for="category in budgetCategories"
+                      :key="category.id"
+                      :value="category.sub_category"
+                    >
+                      {{ category.sub_category }}
+                    </option>
                   </select>
                 </div>
                 <div class="form-group inline-group">
                   <label class="form-label">所属用户：</label>
                   <select class="form-select small-select" v-model="searchForm.user">
                     <option value="">全部</option>
-                    <option value="user1">户主</option>
-                    <option value="user2">配偶</option>
-                    <option value="user3">其他成员</option>
+                    <option
+                      v-for="member in familyMembers"
+                      :key="member.user_id"
+                      :value="member.username"
+                    >
+                      {{ member.username }}
+                      <span v-if="member.is_admin">(管理员)</span>
+                    </option>
                   </select>
                 </div>
                 <button class="btn mini-btn primary-btn" @click="searchExpense">查询</button>
@@ -404,45 +412,47 @@
                   <th>分类</th>
                   <th>所属用户</th>
                   <th>备注</th>
+                  <th>归属</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(item, index) in expenseDetailList" :key="index">
-                  <td>{{ index + 1 }}</td>
+                <tr v-for="(item, index) in billList" :key="item.id">
+                  <td>{{ index + 1 + (expenseCurrentPage - 1) * expensePageSize }}</td>
                   <td>{{ item.time }}</td>
                   <td class="text-red">-{{ item.amount }}</td>
-                  <td>{{ item.merchant }}</td>
-                  <td>{{ getExpenseCategoryText(item.category) }}</td>
-                  <td>{{ getUserText(item.user) }}</td>
-                  <td>{{ item.remark || '-' }}</td>
+                  <td>{{ item.merchant || item.commodity }}</td>
+                  <td>{{ item.category }}</td>
+                  <td>{{ item.user }}</td>
+                  <td>{{ item.remark }}</td>
+                  <td>{{ item.belonging }}</td>
                 </tr>
-                <tr v-if="expenseDetailList.length === 0">
-                  <td colspan="7" class="empty-row">暂无支出明细数据</td>
+                <tr v-if="billList.length === 0">
+                  <td colspan="8" class="empty-row">暂无支出明细数据</td>
                 </tr>
               </tbody>
             </table>
           </div>
 
           <!-- 分页 -->
-          <div class="pagination" v-if="expenseDetailList.length > 0">
-            <button
-              class="btn mini-btn default-btn"
-              @click="currentPage--"
-              :disabled="currentPage === 1"
-            >
-              上一页
-            </button>
-            <span class="page-info">
-              第 {{ currentPage }} 页 / 共 {{ totalPages }} 页
-            </span>
-            <button
-              class="btn mini-btn default-btn"
-              @click="currentPage++"
-              :disabled="currentPage === totalPages"
-            >
-              下一页
-            </button>
-          </div>
+          <div class="pagination" v-if="expenseTotalCount > 0">
+              <button
+                class="btn mini-btn default-btn"
+                @click="() => searchExpense(expenseCurrentPage - 1)"
+                :disabled="expenseCurrentPage === 1"
+              >
+                上一页
+              </button>
+              <span class="page-info">
+                第 {{ expenseCurrentPage }} 页 / 共 {{ expenseTotalPages }} 页 (总计 {{ expenseTotalCount }} 条)
+              </span>
+              <button
+                class="btn mini-btn default-btn"
+                @click="() => searchExpense(expenseCurrentPage + 1)"
+                :disabled="expenseCurrentPage === expenseTotalPages"
+              >
+                下一页
+              </button>
+            </div>
         </div>
       </section>
     </main>
@@ -461,8 +471,11 @@ const selectedUser = ref('user1');
 const sidebarVisible = ref(true);
 const activeTab = ref('expense-import');
 
-// 预算子分类选项
-const budgetSubCategories = ref([]);
+// 预算分类选项（包含ID和名称）
+const budgetCategories = ref([]);
+
+// 家庭成员选项（包含ID和用户名）
+const familyMembers = ref([]);
 
 // 支出导入相关
 const billType = ref('alipay');
@@ -476,6 +489,43 @@ const pendingCurrentPage = ref(1);
 const pendingPageSize = ref(10);
 const pendingTotalPages = ref(0);
 const pendingTotalCount = ref(0);
+
+// 收支明细相关
+const searchForm = ref({
+  startDate: getFirstDayOfMonth(),
+  endDate: new Date().toISOString().split('T')[0],
+  category: '',
+  user: ''
+});
+
+// 获取本月第一天
+function getFirstDayOfMonth() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}-01`;
+}
+
+// 验证日期范围
+function validateDateRange() {
+  if (searchForm.value.startDate && searchForm.value.endDate) {
+    const startDate = new Date(searchForm.value.startDate);
+    const endDate = new Date(searchForm.value.endDate);
+
+    if (startDate > endDate) {
+      ElMessage.warning('开始日期不能晚于结束日期');
+      // 自动调整日期
+      searchForm.value.startDate = searchForm.value.endDate;
+      return false;
+    }
+  }
+  return true;
+}
+const billList = ref([]);
+const expenseCurrentPage = ref(1);
+const expensePageSize = ref(10);
+const expenseTotalPages = ref(0);
+const expenseTotalCount = ref(0);
 
 // 收入录入相关
 const incomeForm = ref({
@@ -497,24 +547,6 @@ const monthTotalExpense = ref(8560.2);
 const monthBalance = ref(monthTotalIncome.value - monthTotalExpense.value);
 const expenseIncomeRatio = ref(Math.round((monthTotalExpense.value / monthTotalIncome.value) * 100));
 
-// 支出明细查询相关
-const searchForm = ref({
-  startDate: '',
-  endDate: new Date().toISOString().split('T')[0],
-  category: '',
-  user: ''
-});
-const expenseDetailList = ref([
-  { time: '2024-05-01', amount: 89.5, merchant: 'XX便利店', category: 'food', user: 'user1', remark: '日常购物' },
-  { time: '2024-05-02', amount: 158.0, merchant: 'XX餐厅', category: 'food', user: 'user2', remark: '家庭聚餐' },
-  { time: '2024-05-03', amount: 35.0, merchant: 'XX公交', category: 'transport', user: 'user1', remark: '通勤' },
-  { time: '2024-05-05', amount: 1200.0, merchant: 'XX物业', category: 'housing', user: 'user1', remark: '物业费' },
-  { time: '2024-05-08', amount: 899.0, merchant: 'XX商场', category: 'shopping', user: 'user2', remark: '衣物购买' }
-]);
-const currentPage = ref(1);
-const pageSize = ref(10);
-const totalPages = ref(Math.ceil(expenseDetailList.value.length / pageSize.value));
-
 // 图表实例
 let trendChart = null;
 let expenseCategoryChart = null;
@@ -533,8 +565,37 @@ const handleResize = () => {
   resizeCharts();
 };
 
+// 获取家庭成员列表
+const loadFamilyMembers = async () => {
+  console.log('开始加载家庭成员列表');
+  try {
+    const res = await financeAPI.getFamilyMembers();
+
+    console.log('家庭成员API响应:', res);
+
+    if (res.data.code === 200) {
+      console.log('成功获取家庭成员:', res.data.data);
+      familyMembers.value = res.data.data;
+      console.log('家庭成员列表更新完成，成员数量:', familyMembers.value.length);
+    } else {
+      console.error('API返回错误状态:', res.data);
+      ElMessage.error(res.data.msg || '获取家庭成员失败');
+    }
+  } catch (error) {
+    console.error('获取家庭成员网络错误:', error);
+    console.error('错误详情:', {
+      message: error.message,
+      response: error.response,
+      status: error.response?.status,
+      data: error.response?.data
+    });
+    ElMessage.error(`获取家庭成员失败: ${error.message}`);
+  }
+};
+
 // 获取待确认支出明细
 const loadPendingExpenses = async (page = 1) => {
+  console.log('开始加载待确认支出明细，页码:', page);
   try {
     const res = await financeAPI.getPendingExpenses({
       page: page,
@@ -542,24 +603,33 @@ const loadPendingExpenses = async (page = 1) => {
     });
 
     if (res.data.code === 200) {
+      console.log('成功获取待确认支出明细:', res.data.data);
       pendingExpenseList.value = res.data.data.records;
       pendingCurrentPage.value = res.data.data.page;
       pendingTotalPages.value = res.data.data.total_pages;
       pendingTotalCount.value = res.data.data.total;
 
-      // 设置预算子分类选项
-      budgetSubCategories.value = res.data.data.budget_sub_categories || [];
+      // 设置预算分类选项
+      budgetCategories.value = res.data.data.budget_sub_categories || [];
 
-      // 为每条记录添加调整项目字段
+      // 为每条记录添加调整项目字段res.data.data.budget_sub_categories
       pendingExpenseList.value.forEach(item => {
-        item.adjusted_sub_category = item.sub_category || '';
+        item.adjusted_sub_category = budgetCategories.value;
       });
+      console.log('待确认列表项目:', pendingExpenseList.value);
     } else {
+      console.error('API返回错误状态:', res.data);
       ElMessage.error(res.data.msg || '获取待确认支出明细失败');
     }
   } catch (error) {
-    console.error('获取待确认支出明细错误:', error);
-    ElMessage.error('获取待确认支出明细失败，请稍后重试');
+    console.error('获取待确认支出明细网络错误:', error);
+    console.error('错误详情:', {
+      message: error.message,
+      response: error.response,
+      status: error.response?.status,
+      data: error.response?.data
+    });
+    ElMessage.error(`获取待确认支出明细失败: ${error.message}`);
   }
 };
 
@@ -576,7 +646,7 @@ const confirmExpense = async (index) => {
   try {
     const res = await financeAPI.confirmExpense({
       transaction_id: item.transaction_id,
-      category: item.main_category,
+      category: item.sub_category,
       belonging: item.belonging,
       adjusted_sub_category: item.adjusted_sub_category
     });
@@ -638,6 +708,16 @@ const resetImportForm = () => {
   billUser.value = 'user1';
 };
 
+// 重置支出明细查询表单
+const resetSearchForm = () => {
+  searchForm.value = {
+    startDate: getFirstDayOfMonth(),
+    endDate: new Date().toISOString().split('T')[0],
+    category: '',
+    user: ''
+  };
+};
+
 // 收入录入方法
 const submitIncome = () => {
   if (!incomeForm.value.amount || incomeForm.value.amount <= 0) {
@@ -693,10 +773,43 @@ const getUserText = (user) => {
 };
 
 // 支出明细查询
-const searchExpense = () => {
-  // 模拟查询逻辑
+const searchExpense = async (page = 1) => {
+  // 先验证日期范围
+  if (!validateDateRange()) {
+    return;
+  }
+
   console.log('查询条件：', searchForm.value);
-  // 实际项目中这里会根据条件过滤数据
+  try {
+    // 获取选中项的ID
+    const selectedUser = familyMembers.value.find(member => member.username === searchForm.value.user);
+    const selectedCategory = budgetCategories.value.find(category => category.sub_category === searchForm.value.category);
+    console.log('获取的ID：', familyMembers.value, budgetCategories.value)
+    const res = await financeAPI.getBill({
+      page: page,
+      page_size: expensePageSize.value,
+      user_id: selectedUser ? selectedUser.user_id : '',
+      category_id: selectedCategory ? selectedCategory.id : '',
+      startDate: searchForm.value.startDate,
+      endDate: searchForm.value.endDate
+    });
+
+    if (res.data.code === 200) {
+      console.log('从后端获取的支出明细数据:', res.data.data.records);
+      billList.value = res.data.data.records;
+      expenseCurrentPage.value = res.data.data.page;
+      expenseTotalPages.value = res.data.data.total_pages;
+      expenseTotalCount.value = res.data.data.total;
+
+      // 设置预算分类选项
+      budgetCategories.value = res.data.data.budget_categories || [];
+    } else {
+      ElMessage.error(res.data.msg || '获取支出明细失败');
+    }
+  } catch (error) {
+    console.error('获取支出明细错误:', error);
+    ElMessage.error('获取支出明细失败，请稍后重试');
+  }
 };
 
 // 图表初始化
@@ -807,8 +920,14 @@ onMounted(async () => {
       console.log('用户邮箱配置:', res.data.data);
     }
 
+    // 加载家庭成员列表
+    await loadFamilyMembers();
+
     // 加载待确认支出明细
     await loadPendingExpenses(1);
+
+    // 初始化支出明细数据
+    await searchExpense(1);
   } catch (error) {
     console.error('初始化失败:', error);
   }

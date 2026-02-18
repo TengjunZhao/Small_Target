@@ -8,6 +8,7 @@ import pandas as pd
 import imaplib
 import email.header
 import datetime
+from datetime import datetime as dt
 import requests
 from bs4 import BeautifulSoup
 import requests.utils
@@ -637,6 +638,8 @@ class PendingExpenseListView(APIView):
         print(f"Request user authenticated: {request.user.is_authenticated}")
         print(f"Request user: {request.user}")
         print(f"Request user id: {getattr(request.user, 'id', 'No ID')}")
+        print(f"Request headers: {dict(request.headers)}")
+        print(f"Request META: {dict(request.META)}")
         """获取待确认支出明细（belonging字段为空的记录）"""
         try:
             # 获取分页参数
@@ -800,6 +803,64 @@ class PendingExpenseListView(APIView):
                 'data': None
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+# 家庭成员列表API视图
+class FamilyMembersView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        """获取当前用户所属家庭的所有成员"""
+        try:
+            user = request.user
+            print(f"获取家庭成员列表，当前用户: {user.username}")
+            
+            # 获取当前用户的家庭信息
+            try:
+                user_profile = UserProfile.objects.get(user=user)
+                family = user_profile.family
+                print(f"用户家庭: {family.family_name if family else 'None'}")
+            except UserProfile.DoesNotExist:
+                return Response({
+                    'code': 400,
+                    'msg': '用户未配置家庭信息',
+                    'data': []
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            if not family:
+                return Response({
+                    'code': 400,
+                    'msg': '用户未分配到任何家庭',
+                    'data': []
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 获取同一家庭的所有用户
+            family_members = UserProfile.objects.filter(family=family).select_related('user')
+            
+            # 构造返回数据
+            members_list = []
+            for member_profile in family_members:
+                members_list.append({
+                    'user_id': member_profile.user.id,
+                    'username': member_profile.user.username,
+                    'is_admin': member_profile.is_admin,
+                    'mobile': member_profile.mobile
+                })
+            
+            print(f"找到 {len(members_list)} 个家庭成员")
+            
+            return Response({
+                'code': 200,
+                'msg': '获取家庭成员成功',
+                'data': members_list
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"获取家庭成员列表失败: {str(e)}")
+            return Response({
+                'code': 500,
+                'msg': f'获取家庭成员失败: {str(e)}',
+                'data': []
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 # 用户邮箱配置API视图
 class UserEmailConfigView(APIView):
     permission_classes = [IsAuthenticated]
@@ -864,3 +925,132 @@ class UserEmailConfigView(APIView):
                 'msg': f'保存邮箱配置失败: {str(e)}',
                 'data': None
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# 收支明细API视图
+class BillListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        print("BillListView GET method called")  # 调试信息
+        print(f"Request user authenticated: {request.user.is_authenticated}")
+        print(f"Request user: {request.user}")
+        print(f"Request user id: {getattr(request.user, 'id', 'No ID')}")
+        try:
+            # 获取当前用户的家庭信息
+            user = request.user
+            try:
+                user_profile = UserProfile.objects.get(user=user)
+                family = user_profile.family
+            except UserProfile.DoesNotExist:
+                return Response({
+                    'code': 400,
+                    'msg': '用户未配置家庭信息',
+                    'data': {}
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # 1. 获取前端传入的参数（带默认值，避免KeyError）
+            try:
+                page = int(request.GET.get('page', 1))
+                page_size = int(request.GET.get('page_size', 10))
+            except (ValueError, TypeError) as e:
+                logger.error(f"分页参数转换错误: {str(e)}, GET参数: {dict(request.GET)}")
+                return Response({
+                    'code': 400,
+                    'msg': '分页参数格式错误',
+                    'data': {}
+                }, status=status.HTTP_400_BAD_REQUEST)
+            print(page, page_size)
+            user_id = request.GET.get('user_id', '')  # 用户ID筛选
+            category_id = request.GET.get('category_id', '')  # 分类ID筛选
+            start_date = request.GET.get('startDate', '')
+            end_date = request.GET.get('endDate', '')
+            print(user_id, category_id, start_date, end_date)
+            # 2. 初始化查询集（基础查询：当前家庭的所有支出记录）
+            queryset = ExpendMerged.objects.filter(family=family)
+            print(f"初始查询集数量: {queryset.count()}")
+            
+            # 3. 条件过滤：只在参数有值时才添加过滤条件
+            # 过滤用户（如果传了user_id）
+            if user_id and user_id.strip():
+                queryset = queryset.filter(user_id=user_id)
+
+            # 过滤分类（如果传了category_id）
+            if category_id and category_id.strip():
+                queryset = queryset.filter(budget_id=category_id)
+
+            # 过滤时间范围（开始时间）
+            if start_date and start_date.strip():
+                try:
+                    # 解析前端传入的日期字符串（格式：YYYY-MM-DD）
+                    start_datetime = dt.strptime(start_date, '%Y-%m-%d')
+                    queryset = queryset.filter(trade_time__gte=start_datetime)
+                except ValueError:
+                    return Response({
+                        'code': 400,
+                        'msg': '开始日期格式错误，请使用YYYY-MM-DD格式',
+                        'data': {}
+                    })
+
+            # 过滤时间范围（结束时间）
+            if end_date and end_date.strip():
+                try:
+                    end_datetime = dt.strptime(end_date, '%Y-%m-%d')
+                    # 结束时间加一天，确保包含当天所有记录
+                    end_datetime = end_datetime.replace(hour=23, minute=59, second=59)
+                    queryset = queryset.filter(trade_time__lte=end_datetime)
+                except ValueError:
+                    return Response({
+                        'code': 400,
+                        'msg': '结束日期格式错误，请使用YYYY-MM-DD格式',
+                        'data': {}
+                    })
+
+            # 4. 分页处理
+            total = queryset.count()  # 总记录数
+            # 计算偏移量（page从1开始）
+            offset = (page - 1) * page_size
+            # 分页查询
+            records = queryset.order_by('-trade_time')[offset:offset + page_size]
+
+            # 5. 序列化数据
+            data_list = []
+            for record in records:
+                data_list.append({
+                    'transaction_id': record.transaction_id,
+                    'time': record.trade_time.strftime('%Y-%m-%d %H:%M:%S') if record.trade_time else '',
+                    'amount': float(record.price) if record.price else 0,
+                    'merchant': record.person or '',
+                    'commodity': record.commodity or '',
+                    'category': record.budget.sub_category if record.budget else '',
+                    'user': record.user.username if record.user else '',
+                    'remark': record.status or '',
+                    'belonging': record.belonging or ''
+                })
+
+            # 6. 获取预算分类列表（包含ID和名称）
+            budget_categories = list(BudgetCategory.objects.filter(
+                family=family
+            ).values('id', 'main_category').distinct())
+
+            # 7. 构造返回数据（匹配前端预期格式）
+            return Response({
+                'code': 200,
+                'msg': '查询成功',
+                'data': {
+                    'records': data_list,
+                    'page': page,
+                    'page_size': page_size,
+                    'total': total,
+                    'total_pages': (total + page_size - 1) // page_size,  # 总页数
+                    'budget_categories': budget_categories
+                }
+            })
+
+        except Exception as e:
+            logger.error(f"查询收支明细失败: {str(e)}")
+            # 异常捕获，返回友好提示
+            return Response({
+                'code': 500,
+                'msg': f'查询失败：{str(e)}',
+                'data': {}
+            })

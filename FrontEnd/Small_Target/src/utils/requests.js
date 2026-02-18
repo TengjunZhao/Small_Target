@@ -88,7 +88,13 @@ export const financeAPI = {
 
   // 待确认支出明细
   getPendingExpenses: (params) => service.get('/finance/pending-expense/', { params }),
-  confirmExpense: (data) => service.post('/finance/pending-expense/', data)
+  confirmExpense: (data) => service.post('/finance/pending-expense/', data),
+
+  // 收支明细查询
+  getBill: (params) => service.get('/finance/bill/', { params }),
+  
+  // 家庭成员列表
+  getFamilyMembers: () => service.get('/finance/family-members/'),
 }
 
 // Kana相关API
