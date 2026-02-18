@@ -163,11 +163,11 @@
                       <select class="form-select small-select" v-model="item.adjusted_sub_category">
                         <option value="">请选择</option>
                         <option
-                          v-for="category in item.adjusted_sub_category"
-                          :key="category"
-                          :value="category"
+                          v-for="category in budgetCategories"
+                          :key="category.id"
+                          :value="category.id"
                         >
-                          {{ category }}
+                          {{ category.sub_category }}
                         </option>
                       </select>
                     </td>
@@ -376,7 +376,7 @@
                     <option
                       v-for="category in budgetCategories"
                       :key="category.id"
-                      :value="category.sub_category"
+                      :value="category.id"
                     >
                       {{ category.sub_category }}
                     </option>
@@ -567,16 +567,12 @@ const handleResize = () => {
 
 // 获取家庭成员列表
 const loadFamilyMembers = async () => {
-  console.log('开始加载家庭成员列表');
   try {
     const res = await financeAPI.getFamilyMembers();
 
-    console.log('家庭成员API响应:', res);
 
     if (res.data.code === 200) {
-      console.log('成功获取家庭成员:', res.data.data);
       familyMembers.value = res.data.data;
-      console.log('家庭成员列表更新完成，成员数量:', familyMembers.value.length);
     } else {
       console.error('API返回错误状态:', res.data);
       ElMessage.error(res.data.msg || '获取家庭成员失败');
@@ -595,7 +591,6 @@ const loadFamilyMembers = async () => {
 
 // 获取待确认支出明细
 const loadPendingExpenses = async (page = 1) => {
-  console.log('开始加载待确认支出明细，页码:', page);
   try {
     const res = await financeAPI.getPendingExpenses({
       page: page,
@@ -603,20 +598,17 @@ const loadPendingExpenses = async (page = 1) => {
     });
 
     if (res.data.code === 200) {
-      console.log('成功获取待确认支出明细:', res.data.data);
       pendingExpenseList.value = res.data.data.records;
       pendingCurrentPage.value = res.data.data.page;
       pendingTotalPages.value = res.data.data.total_pages;
       pendingTotalCount.value = res.data.data.total;
 
-      // 设置预算分类选项
-      budgetCategories.value = res.data.data.budget_sub_categories || [];
-
-      // 为每条记录添加调整项目字段res.data.data.budget_sub_categories
+      // 设置预算分类选项（后端返回的是budget_categories）
+      budgetCategories.value = res.data.data.budget_categories || [];
+      // 为每条记录初始化调整项目字段
       pendingExpenseList.value.forEach(item => {
-        item.adjusted_sub_category = budgetCategories.value;
+        item.adjusted_sub_category = '';
       });
-      console.log('待确认列表项目:', pendingExpenseList.value);
     } else {
       console.error('API返回错误状态:', res.data);
       ElMessage.error(res.data.msg || '获取待确认支出明细失败');
@@ -644,11 +636,15 @@ const confirmExpense = async (index) => {
   }
 
   try {
+    // 获取选中的预算分类ID对应的子分类名称
+    const selectedCategory = budgetCategories.value.find(cat => cat.id === parseInt(item.adjusted_sub_category));
+    const adjustedSubCategory = selectedCategory ? selectedCategory.sub_category : '';
+
     const res = await financeAPI.confirmExpense({
       transaction_id: item.transaction_id,
       category: item.sub_category,
       belonging: item.belonging,
-      adjusted_sub_category: item.adjusted_sub_category
+      adjusted_sub_category: adjustedSubCategory
     });
 
     if (res.data.code === 200) {
@@ -779,23 +775,21 @@ const searchExpense = async (page = 1) => {
     return;
   }
 
-  console.log('查询条件：', searchForm.value);
   try {
     // 获取选中项的ID
     const selectedUser = familyMembers.value.find(member => member.username === searchForm.value.user);
-    const selectedCategory = budgetCategories.value.find(category => category.sub_category === searchForm.value.category);
-    console.log('获取的ID：', familyMembers.value, budgetCategories.value)
+    // searchForm.category现在存储的是ID，直接使用
+    const categoryId = searchForm.value.category || '';
     const res = await financeAPI.getBill({
       page: page,
       page_size: expensePageSize.value,
       user_id: selectedUser ? selectedUser.user_id : '',
-      category_id: selectedCategory ? selectedCategory.id : '',
+      category_id: categoryId,
       startDate: searchForm.value.startDate,
       endDate: searchForm.value.endDate
     });
 
     if (res.data.code === 200) {
-      console.log('从后端获取的支出明细数据:', res.data.data.records);
       billList.value = res.data.data.records;
       expenseCurrentPage.value = res.data.data.page;
       expenseTotalPages.value = res.data.data.total_pages;
@@ -917,7 +911,6 @@ onMounted(async () => {
     const res = await financeAPI.getUserEmailConfig();
     if (res.data.code === 200) {
       // 可以在这里处理邮箱配置信息
-      console.log('用户邮箱配置:', res.data.data);
     }
 
     // 加载家庭成员列表

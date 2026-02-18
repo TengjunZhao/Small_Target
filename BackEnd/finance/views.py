@@ -1027,10 +1027,10 @@ class BillListView(APIView):
                     'belonging': record.belonging or ''
                 })
 
-            # 6. 获取预算分类列表（包含ID和名称）
+            # 6. 获取预算分类列表（包含ID和子分类名称）
             budget_categories = list(BudgetCategory.objects.filter(
                 family=family
-            ).values('id', 'main_category').distinct())
+            ).values('id', 'sub_category').distinct())
 
             # 7. 构造返回数据（匹配前端预期格式）
             return Response({
