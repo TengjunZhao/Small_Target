@@ -396,7 +396,7 @@
                     </option>
                   </select>
                 </div>
-                <button class="btn mini-btn primary-btn" @click="searchExpense">查询</button>
+                <button class="btn mini-btn primary-btn" @click="() => searchExpense(1)">查询</button>
               </div>
             </div>
           </div>

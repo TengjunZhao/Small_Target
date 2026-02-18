@@ -952,6 +952,7 @@ class BillListView(APIView):
             try:
                 page = int(request.GET.get('page', 1))
                 page_size = int(request.GET.get('page_size', 10))
+                print(f"分页参数: page={page}, page_size={page_size}")
             except (ValueError, TypeError) as e:
                 logger.error(f"分页参数转换错误: {str(e)}, GET参数: {dict(request.GET)}")
                 return Response({
