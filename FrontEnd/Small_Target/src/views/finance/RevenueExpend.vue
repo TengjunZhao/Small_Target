@@ -140,32 +140,42 @@
                   <tr>
                     <th>时间</th>
                     <th>金额(元)</th>
-                    <th>商户</th>
-                    <th>分类</th>
+                    <th>收/支</th>
+                    <th>商品</th>
+                    <th>交易对方</th>
+                    <th>类别</th>
+                    <th>项目</th>
+                    <th>调整项目</th>
                     <th>备注</th>
                     <th>操作</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="(item, index) in pendingExpenseList" :key="index">
+                  <tr v-for="(item, index) in pendingExpenseList" :key="item.id">
                     <td>{{ item.time }}</td>
                     <td class="text-red">-{{ item.amount }}</td>
-                    <td>{{ item.merchant }}</td>
+                    <td>{{ item.in_out }}</td>
+                    <td>{{ item.commodity }}</td>
+                    <td>{{ item.person }}</td>
+                    <td>{{ item.main_category }}</td>
+                    <td>{{ item.sub_category }}</td>
                     <td>
-                      <select class="form-select small-select" v-model="item.category">
-                        <option value="food">餐饮美食</option>
-                        <option value="shopping">购物消费</option>
-                        <option value="transport">交通出行</option>
-                        <option value="housing">住房缴费</option>
-                        <option value="entertainment">休闲娱乐</option>
-                        <option value="other">其他支出</option>
+                      <select class="form-select small-select" v-model="item.adjusted_sub_category">
+                        <option value="">请选择</option>
+                        <option
+                          v-for="category in budgetSubCategories"
+                          :key="category"
+                          :value="category"
+                        >
+                          {{ category }}
+                        </option>
                       </select>
                     </td>
                     <td>
                       <input
                         type="text"
                         class="form-input small-input"
-                        v-model="item.remark"
+                        v-model="item.belonging"
                         placeholder="请输入备注"
                       >
                     </td>
@@ -173,8 +183,32 @@
                       <button class="btn mini-btn primary-btn" @click="confirmExpense(index)">确认</button>
                     </td>
                   </tr>
+                  <tr v-if="pendingExpenseList.length === 0">
+                    <td colspan="10" class="empty-row">暂无待确认支出记录</td>
+                  </tr>
                 </tbody>
               </table>
+            </div>
+
+            <!-- 分页控件 -->
+            <div class="pagination" v-if="pendingTotalCount > 0">
+              <button
+                class="btn mini-btn default-btn"
+                @click="loadPendingExpenses(pendingCurrentPage - 1)"
+                :disabled="pendingCurrentPage === 1"
+              >
+                上一页
+              </button>
+              <span class="page-info">
+                第 {{ pendingCurrentPage }} 页 / 共 {{ pendingTotalPages }} 页 (总计 {{ pendingTotalCount }} 条)
+              </span>
+              <button
+                class="btn mini-btn default-btn"
+                @click="loadPendingExpenses(pendingCurrentPage + 1)"
+                :disabled="pendingCurrentPage === pendingTotalPages"
+              >
+                下一页
+              </button>
             </div>
           </div>
         </div>
@@ -418,6 +452,8 @@
 <script setup>
 import { ref, onMounted, onUnmounted, watch } from 'vue';
 import * as echarts from 'echarts';
+import { financeAPI } from '@/utils/requests.js';
+import { ElMessage } from 'element-plus';
 
 // 基础响应式数据
 const selectedFamily = ref('family1');
@@ -425,15 +461,21 @@ const selectedUser = ref('user1');
 const sidebarVisible = ref(true);
 const activeTab = ref('expense-import');
 
+// 预算子分类选项
+const budgetSubCategories = ref([]);
+
 // 支出导入相关
 const billType = ref('alipay');
-const billPassword = ref('');
+const alipayPassword = ref('');
+const wechatPassword = ref('');
 const billUser = ref('user1');
-const pendingExpenseList = ref([
-  { time: '2024-05-01', amount: 89.5, merchant: 'XX便利店', category: 'food', remark: '' },
-  { time: '2024-05-02', amount: 158.0, merchant: 'XX餐厅', category: 'food', remark: '' },
-  { time: '2024-05-03', amount: 35.0, merchant: 'XX公交', category: 'transport', remark: '' }
-]);
+
+// 待确认支出明细相关
+const pendingExpenseList = ref([]);
+const pendingCurrentPage = ref(1);
+const pendingPageSize = ref(10);
+const pendingTotalPages = ref(0);
+const pendingTotalCount = ref(0);
 
 // 收入录入相关
 const incomeForm = ref({
@@ -491,6 +533,73 @@ const handleResize = () => {
   resizeCharts();
 };
 
+// 获取待确认支出明细
+const loadPendingExpenses = async (page = 1) => {
+  try {
+    const res = await financeAPI.getPendingExpenses({
+      page: page,
+      page_size: pendingPageSize.value
+    });
+
+    if (res.data.code === 200) {
+      pendingExpenseList.value = res.data.data.records;
+      pendingCurrentPage.value = res.data.data.page;
+      pendingTotalPages.value = res.data.data.total_pages;
+      pendingTotalCount.value = res.data.data.total;
+
+      // 设置预算子分类选项
+      budgetSubCategories.value = res.data.data.budget_sub_categories || [];
+
+      // 为每条记录添加调整项目字段
+      pendingExpenseList.value.forEach(item => {
+        item.adjusted_sub_category = item.sub_category || '';
+      });
+    } else {
+      ElMessage.error(res.data.msg || '获取待确认支出明细失败');
+    }
+  } catch (error) {
+    console.error('获取待确认支出明细错误:', error);
+    ElMessage.error('获取待确认支出明细失败，请稍后重试');
+  }
+};
+
+// 确认支出记录
+const confirmExpense = async (index) => {
+  const item = pendingExpenseList.value[index];
+
+  // 验证必填字段
+  if (!item.belonging) {
+    ElMessage.warning('请输入备注信息');
+    return;
+  }
+
+  try {
+    const res = await financeAPI.confirmExpense({
+      transaction_id: item.transaction_id,
+      category: item.main_category,
+      belonging: item.belonging,
+      adjusted_sub_category: item.adjusted_sub_category
+    });
+
+    if (res.data.code === 200) {
+      ElMessage.success('支出记录确认成功');
+      // 从列表中移除已确认的记录
+      pendingExpenseList.value.splice(index, 1);
+      pendingTotalCount.value -= 1;
+      // 如果当前页没有数据且不是第一页，则返回上一页
+      if (pendingExpenseList.value.length === 0 && pendingCurrentPage.value > 1) {
+        pendingCurrentPage.value -= 1;
+        await loadPendingExpenses(pendingCurrentPage.value);
+      }
+    } else {
+      ElMessage.error(res.data.msg || '确认支出记录失败');
+    }
+  } catch (error) {
+    console.error('确认支出记录错误:', error);
+    ElMessage.error('确认支出记录失败，请稍后重试');
+  }
+};
+
 // 支出导入方法
 const handleFileUpload = (e) => {
   // 模拟文件上传处理
@@ -502,7 +611,7 @@ const importBill = async () => {
     ElMessage.error('请至少输入一个账单密码');
     return;
   }
-  
+
   try {
     // 调用账单导入API
     const res = await financeAPI.importBill({
@@ -510,10 +619,11 @@ const importBill = async () => {
       wechat_password: wechatPassword.value,
       user: billUser.value
     });
-    
+
     if (res.data.code === 200) {
       ElMessage.success('账单导入成功');
-      // 可以在这里更新待确认列表等UI
+      // 重新加载待确认列表
+      await loadPendingExpenses(1);
     } else {
       ElMessage.error(res.data.msg || '账单导入失败');
     }
@@ -526,11 +636,6 @@ const resetImportForm = () => {
   alipayPassword.value = '';
   wechatPassword.value = '';
   billUser.value = 'user1';
-};
-const confirmExpense = (index) => {
-  // 模拟确认支出
-  pendingExpenseList.value.splice(index, 1);
-  alert('支出记录确认成功');
 };
 
 // 收入录入方法
@@ -693,7 +798,7 @@ watch(activeTab, (newVal) => {
   }
 });
 
-// 页面加载时获取用户邮箱配置
+// 页面加载时获取用户邮箱配置和待确认支出明细
 onMounted(async () => {
   try {
     const res = await financeAPI.getUserEmailConfig();
@@ -701,10 +806,13 @@ onMounted(async () => {
       // 可以在这里处理邮箱配置信息
       console.log('用户邮箱配置:', res.data.data);
     }
+
+    // 加载待确认支出明细
+    await loadPendingExpenses(1);
   } catch (error) {
-    console.error('获取邮箱配置失败:', error);
+    console.error('初始化失败:', error);
   }
-  
+
   handleResize();
   window.addEventListener('resize', handleResize);
   // 初始进入分析页时初始化图表

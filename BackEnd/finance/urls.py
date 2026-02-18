@@ -4,4 +4,5 @@ from . import views
 urlpatterns = [
     path('import-bill/', views.ImportBillView.as_view(), name='import_bill'),
     path('user-email-config/', views.UserEmailConfigView.as_view(), name='user_email_config'),
+    path('pending-expense/', views.PendingExpenseListView.as_view(), name='pending_expense'),
 ]

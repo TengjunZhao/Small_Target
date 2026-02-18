@@ -18,7 +18,7 @@ from django.contrib.auth.models import User
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from .models import UserProfile, Family, ExpendAlipay, ExpendWechat, ExpendMerged, BudgetCategory
 import logging
 
@@ -627,6 +627,178 @@ class ImportBillView(APIView):
             return '购物消费'
         else:
             return '其他支出'
+
+# 待确认支出明细API视图
+class PendingExpenseListView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        print("PendingExpenseListView GET method called")  # 调试信息
+        print(f"Request user authenticated: {request.user.is_authenticated}")
+        print(f"Request user: {request.user}")
+        print(f"Request user id: {getattr(request.user, 'id', 'No ID')}")
+        """获取待确认支出明细（belonging字段为空的记录）"""
+        try:
+            # 获取分页参数
+            page = int(request.GET.get('page', 1))
+            page_size = int(request.GET.get('page_size', 10))
+            offset = (page - 1) * page_size
+            
+            # 获取当前用户的家庭信息
+            user = request.user
+            print(f"DEBUG: Current user: {user.username if user.is_authenticated else 'Anonymous'}")
+            try:
+                user_profile = UserProfile.objects.get(user=user)
+                family = user_profile.family
+                print(f"DEBUG: User profile family: {family.family_name if family else 'None'}")
+            except UserProfile.DoesNotExist:
+                print("DEBUG: UserProfile.DoesNotExist")
+                return Response({
+                    'code': 400,
+                    'msg': '用户未配置家庭信息',
+                    'data': None
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 查询belonging字段为空的记录，按trade_time倒序排列
+            queryset = ExpendMerged.objects.filter(
+                family=family,
+                belonging__isnull=True
+            ).select_related('budget').order_by('-trade_time')
+            
+            # 获取总数
+            total_count = queryset.count()
+            
+            # 分页查询
+            records = queryset[offset:offset + page_size]
+            
+            # 获取所有预算子分类选项
+            budget_sub_categories = list(BudgetCategory.objects.filter(
+                family=family
+            ).values_list('sub_category', flat=True).distinct())
+            
+            # 序列化数据
+            data_list = []
+            for record in records:
+                data_list.append({
+                    'transaction_id': record.transaction_id,
+                    'time': record.trade_time.strftime('%Y-%m-%d %H:%M:%S') if record.trade_time else '',
+                    'amount': float(record.price) if record.price else 0,
+                    'in_out': record.in_out or '',
+                    'commodity': record.commodity or '',
+                    'main_category': record.budget.main_category if record.budget else '',
+                    'sub_category': record.budget.sub_category if record.budget else '',
+                    'belonging': record.belonging or '',
+                    'person': record.person or '',
+                    'expend_channel': record.get_expend_channel_display() or record.expend_channel
+                })
+            
+            return Response({
+                'code': 200,
+                'msg': '获取待确认支出明细成功',
+                'data': {
+                    'records': data_list,
+                    'budget_sub_categories': budget_sub_categories,
+                    'total': total_count,
+                    'page': page,
+                    'page_size': page_size,
+                    'total_pages': (total_count + page_size - 1) // page_size
+                }
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"获取待确认支出明细失败: {str(e)}")
+            return Response({
+                'code': 500,
+                'msg': f'获取待确认支出明细失败: {str(e)}',
+                'data': None
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def post(self, request):
+        """确认支出记录（更新belonging字段）"""
+        try:
+            record_id = request.data.get('transaction_id')
+            category = request.data.get('category')
+            belonging = request.data.get('belonging')  # 默认归属为户主
+            adjusted_sub_category = request.data.get('adjusted_sub_category', '')
+            print(f"DEBUG: Record ID: {record_id}, {category} ,{belonging}, {adjusted_sub_category}")
+            if not record_id:
+                return Response({
+                    'code': 400,
+                    'msg': '记录ID不能为空',
+                    'data': None
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 查找记录
+            try:
+                record = ExpendMerged.objects.get(transaction_id=record_id)
+            except ExpendMerged.DoesNotExist:
+                return Response({
+                    'code': 404,
+                    'msg': '记录不存在',
+                    'data': None
+                }, status=status.HTTP_404_NOT_FOUND)
+            
+            # 更新记录
+            record.belonging = belonging
+            if belonging:
+                record.status = belonging
+            record.save()
+            
+            # 如果提供了调整的子分类，查找对应的预算分类
+            if adjusted_sub_category:
+                try:
+                    # 根据调整的子分类查找budget_category
+                    budget_category = BudgetCategory.objects.get(
+                        family=record.family,
+                        sub_category=adjusted_sub_category
+                    )
+                    record.budget = budget_category
+                    record.save()
+                    logger.info(f"更新预算分类成功: {budget_category.main_category} - {budget_category.sub_category}")
+                except BudgetCategory.DoesNotExist:
+                    # 如果找不到对应的预算分类，创建一个新的
+                    if category:
+                        budget_category, created = BudgetCategory.objects.get_or_create(
+                            family=record.family,
+                            main_category=category,
+                            defaults={'sub_category': adjusted_sub_category, 'is_fixed': False}
+                        )
+                        record.budget = budget_category
+                        record.save()
+                        logger.info(f"创建新的预算分类: {budget_category.main_category} - {budget_category.sub_category}")
+                    else:
+                        logger.warning("未提供主分类，无法创建预算分类")
+                except Exception as e:
+                    logger.error(f"更新预算分类失败: {str(e)}")
+            # 如果只提供了主分类但没有调整子分类
+            elif category and not record.budget:
+                try:
+                    budget_category, created = BudgetCategory.objects.get_or_create(
+                        family=record.family,
+                        main_category=category,
+                        defaults={'sub_category': '默认', 'is_fixed': False}
+                    )
+                    record.budget = budget_category
+                    record.save()
+                except Exception as e:
+                    logger.warning(f"更新预算分类失败: {str(e)}")
+            
+            return Response({
+                'code': 200,
+                'msg': '支出记录确认成功',
+                'data': {
+                    'transaction_id': record.transaction_id,
+                    'belonging': record.belonging
+                }
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"确认支出记录失败: {str(e)}")
+            return Response({
+                'code': 500,
+                'msg': f'确认支出记录失败: {str(e)}',
+                'data': None
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # 用户邮箱配置API视图
 class UserEmailConfigView(APIView):

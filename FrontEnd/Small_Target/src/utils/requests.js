@@ -84,7 +84,11 @@ export const financeAPI = {
 
   // 用户邮箱配置
   getUserEmailConfig: () => service.get('/finance/user-email-config/'),
-  setUserEmailConfig: (data) => service.post('/finance/user-email-config/', data)
+  setUserEmailConfig: (data) => service.post('/finance/user-email-config/', data),
+
+  // 待确认支出明细
+  getPendingExpenses: (params) => service.get('/finance/pending-expense/', { params }),
+  confirmExpense: (data) => service.post('/finance/pending-expense/', data)
 }
 
 // Kana相关API
