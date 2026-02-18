@@ -117,10 +117,16 @@
                 </div>
                 <div class="form-group">
                   <label class="form-label">所属用户：</label>
-                  <select class="form-select" v-model="billUser">
-                    <option value="user1">户主</option>
-                    <option value="user2">配偶</option>
-                    <option value="user3">其他成员</option>
+                  <select class="form-select small-select" v-model="searchForm.user">
+                    <option value="">全部</option>
+                    <option
+                      v-for="member in familyMembers"
+                      :key="member.user_id"
+                      :value="member.username"
+                    >
+                      {{ member.username }}
+                      <span v-if="member.is_admin">(管理员)</span>
+                    </option>
                   </select>
                 </div>
               </div>
@@ -252,10 +258,16 @@
               <div class="form-row">
                 <div class="form-group">
                   <label class="form-label">所属用户：</label>
-                  <select class="form-select" v-model="incomeForm.user">
-                    <option value="user1">户主</option>
-                    <option value="user2">配偶</option>
-                    <option value="user3">其他成员</option>
+                  <select class="form-select small-select" v-model="searchForm.user">
+                    <option value="">全部</option>
+                    <option
+                      v-for="member in familyMembers"
+                      :key="member.user_id"
+                      :value="member.username"
+                    >
+                      {{ member.username }}
+                      <span v-if="member.is_admin">(管理员)</span>
+                    </option>
                   </select>
                 </div>
                 <div class="form-group full-width">
@@ -400,37 +412,39 @@
               </div>
             </div>
           </div>
-
-          <div class="table-container">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>序号</th>
-                  <th>时间</th>
-                  <th>金额(元)</th>
-                  <th>商户/说明</th>
-                  <th>分类</th>
-                  <th>所属用户</th>
-                  <th>备注</th>
-                  <th>归属</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(item, index) in billList" :key="item.id">
-                  <td>{{ index + 1 + (expenseCurrentPage - 1) * expensePageSize }}</td>
-                  <td>{{ item.time }}</td>
-                  <td class="text-red">-{{ item.amount }}</td>
-                  <td>{{ item.merchant || item.commodity }}</td>
-                  <td>{{ item.category }}</td>
-                  <td>{{ item.user }}</td>
-                  <td>{{ item.remark }}</td>
-                  <td>{{ item.belonging }}</td>
-                </tr>
-                <tr v-if="billList.length === 0">
-                  <td colspan="8" class="empty-row">暂无支出明细数据</td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="panel-card mt-20" v-if="pendingExpenseList.length > 0">
+            <div class="panel-title">收支明细</div>
+            <div class="table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>序号</th>
+                    <th>时间</th>
+                    <th>金额(元)</th>
+                    <th>商户/说明</th>
+                    <th>分类</th>
+                    <th>所属用户</th>
+                    <th>备注</th>
+                    <th>归属</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(item, index) in billList" :key="item.id">
+                    <td>{{ index + 1 + (expenseCurrentPage - 1) * expensePageSize }}</td>
+                    <td>{{ item.time }}</td>
+                    <td class="text-red">-{{ item.amount }}</td>
+                    <td>{{ item.merchant || item.commodity }}</td>
+                    <td>{{ item.category }}</td>
+                    <td>{{ item.user }}</td>
+                    <td>{{ item.remark }}</td>
+                    <td>{{ item.belonging }}</td>
+                  </tr>
+                  <tr v-if="billList.length === 0">
+                    <td colspan="8" class="empty-row">暂无支出明细数据</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
 
           <!-- 分页 -->
