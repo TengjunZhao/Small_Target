@@ -20,7 +20,8 @@ MYSQL_CONFIG = {
 
 # PostgreSQL 服务器配置
 PG_CONFIG = {
-    'host': '43.137.41.36',
+    # 'host': '43.137.41.36',
+    'host': 'localhost',
     'port': 5432,
     'user': 'postgres',
     'password': 'password',

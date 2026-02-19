@@ -1020,6 +1020,7 @@ class BillListView(APIView):
                     'transaction_id': record.transaction_id,
                     'time': record.trade_time.strftime('%Y-%m-%d %H:%M:%S') if record.trade_time else '',
                     'amount': float(record.price) if record.price else 0,
+                    'in_out': record.in_out,
                     'merchant': record.person or '',
                     'commodity': record.commodity or '',
                     'category': record.budget.sub_category if record.budget else '',

@@ -159,7 +159,9 @@
                 <tbody>
                   <tr v-for="(item, index) in pendingExpenseList" :key="item.id">
                     <td>{{ item.time }}</td>
-                    <td class="text-red">-{{ item.amount }}</td>
+                    <td :style="{color: item.in_out === '支出' ? '#F56C6C' : '#67C23A'}">
+                      {{ item.in_out === '支出' ? '-' + item.amount : item.amount }}
+                    </td>
                     <td>{{ item.in_out }}</td>
                     <td>{{ item.commodity }}</td>
                     <td>{{ item.person }}</td>
@@ -421,6 +423,7 @@
                     <th>序号</th>
                     <th>时间</th>
                     <th>金额(元)</th>
+                    <th>收入/支出</th>
                     <th>商户/说明</th>
                     <th>分类</th>
                     <th>所属用户</th>
@@ -432,7 +435,8 @@
                   <tr v-for="(item, index) in billList" :key="item.id">
                     <td>{{ index + 1 + (expenseCurrentPage - 1) * expensePageSize }}</td>
                     <td>{{ item.time }}</td>
-                    <td class="text-red">-{{ item.amount }}</td>
+                    <td :style="{color: item.in_out === '支出' ? '#F56C6C' : '#67C23A'}">{{ item.in_out === '支出' ? '-' + item.amount : item.amount }}</td>
+                    <td>{{ item.in_out }}</td>
                     <td>{{ item.merchant || item.commodity }}</td>
                     <td>{{ item.category }}</td>
                     <td>{{ item.user }}</td>
@@ -1326,16 +1330,25 @@ onUnmounted(() => {
   color: #333;
 }
 
+/* 控制商品和交易对方列的最大宽度 */
+.data-table td:nth-child(4), /* 商品列 */
+.data-table th:nth-child(4) {
+  max-width: 150px;
+  word-wrap: break-word;
+  word-break: break-all;
+  white-space: normal;
+}
+
+.data-table td:nth-child(5), /* 交易对方列 */
+.data-table th:nth-child(5) {
+  max-width: 120px;
+  word-wrap: break-word;
+  word-break: break-all;
+  white-space: normal;
+}
+
 .data-table tr:hover {
   background-color: #f8f9fa;
-}
-
-.text-red {
-  color: #F56C6C;
-}
-
-.text-green {
-  color: #67C23A;
 }
 
 .empty-row {
@@ -1442,6 +1455,17 @@ onUnmounted(() => {
   .chart-grid {
     grid-template-columns: 1fr;
   }
+
+  /* 在中等屏幕下调整列宽 */
+  .data-table td:nth-child(4),
+  .data-table th:nth-child(4) {
+    max-width: 120px;
+  }
+
+  .data-table td:nth-child(5),
+  .data-table th:nth-child(5) {
+    max-width: 100px;
+  }
 }
 
 @media (max-width: 768px) {
@@ -1506,6 +1530,17 @@ onUnmounted(() => {
     height: 40px;
     line-height: 40px;
     font-size: 12px;
+  }
+
+  /* 在小屏幕上进一步调整列宽 */
+  .data-table td:nth-child(4),
+  .data-table th:nth-child(4) {
+    max-width: 100px;
+  }
+
+  .data-table td:nth-child(5),
+  .data-table th:nth-child(5) {
+    max-width: 80px;
   }
 }
 
