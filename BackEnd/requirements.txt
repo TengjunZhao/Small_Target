@@ -12,3 +12,5 @@ openpyxl==3.1.2
 charset-normalizer==3.3.2
 chardet
 openpyxl
+celery==5.3.6
+redis==5.0.1

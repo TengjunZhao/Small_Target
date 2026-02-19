@@ -131,8 +131,147 @@
                 </div>
               </div>
               <div class="form-actions">
-                <button class="btn primary-btn" @click="importBill">导入账单</button>
+                <button 
+                  class="btn primary-btn" 
+                  @click="importBill" 
+                  :disabled="isImporting"
+                >
+                  {{ isImporting ? '导入中...' : '导入账单' }}
+                </button>
                 <button class="btn default-btn" @click="resetImportForm">重置</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 导入进度显示 -->
+          <div class="panel-card mt-20" v-if="isImporting || importTaskStatus.task_id">
+            <div class="panel-title">导入进度</div>
+            <div class="progress-container">
+              <!-- 任务基本信息 -->
+              <div class="task-info" v-if="importTaskStatus.task_id">
+                <div class="info-item">
+                  <strong>任务ID：</strong>
+                  <span class="task-id">{{ importTaskStatus.task_id.substring(0, 8) }}...</span>
+                </div>
+                <div class="info-item">
+                  <strong>状态：</strong>
+                  <span class="status-badge" :class="importTaskStatus.status">
+                    {{ getStatusText(importTaskStatus.status) }}
+                  </span>
+                </div>
+              </div>
+              
+              <!-- 进度概览 -->
+              <div class="progress-overview">
+                <div class="progress-main">
+                  <div class="progress-text">
+                    <span class="progress-percent">{{ importTaskStatus.progress }}%</span>
+                    <span class="progress-label">完成度</span>
+                  </div>
+                  <div class="progress-description">
+                    {{ getStatusDescription(importTaskStatus.status) }}
+                  </div>
+                </div>
+                <div class="progress-stats">
+                  <div class="stat-item">
+                    <span class="stat-number">{{ importTaskStatus.progress }}</span>
+                    <span class="stat-label">进度</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-number">{{ formatTime(new Date()) }}</span>
+                    <span class="stat-label">当前时间</span>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- 进度条 -->
+              <div class="progress-bar-container">
+                <div class="progress-bar">
+                  <div 
+                    class="progress-fill" 
+                    :style="{ 
+                      width: importTaskStatus.progress + '%',
+                      backgroundColor: getProgressColor(importTaskStatus.status, importTaskStatus.progress)
+                    }"
+                  ></div>
+                </div>
+                <div class="progress-steps">
+                  <div 
+                    class="step" 
+                    :class="{ active: importTaskStatus.progress >= 25, completed: importTaskStatus.progress > 25 }"
+                  >
+                    <div class="step-icon">1</div>
+                    <div class="step-label">启动任务</div>
+                  </div>
+                  <div 
+                    class="step" 
+                    :class="{ active: importTaskStatus.progress >= 50, completed: importTaskStatus.progress > 50 }"
+                  >
+                    <div class="step-icon">2</div>
+                    <div class="step-label">处理数据</div>
+                  </div>
+                  <div 
+                    class="step" 
+                    :class="{ active: importTaskStatus.progress >= 75, completed: importTaskStatus.progress > 75 }"
+                  >
+                    <div class="step-icon">3</div>
+                    <div class="step-label">合并记录</div>
+                  </div>
+                  <div 
+                    class="step" 
+                    :class="{ active: importTaskStatus.progress >= 100, completed: importTaskStatus.status === 'completed' }"
+                  >
+                    <div class="step-icon">✓</div>
+                    <div class="step-label">完成导入</div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- 详细信息 -->
+              <div class="progress-details" v-if="importTaskStatus.result || importTaskStatus.message">
+                <div class="detail-section">
+                  <h4>任务详情</h4>
+                  <div class="detail-item" v-if="importTaskStatus.message">
+                    <strong>当前状态：</strong>
+                    <span>{{ importTaskStatus.message }}</span>
+                  </div>
+                  <div class="detail-item" v-if="importTaskStatus.result && importTaskStatus.result.processed_files !== undefined">
+                    <strong>处理文件数：</strong>
+                    <span>{{ importTaskStatus.result.processed_files }} 个</span>
+                  </div>
+                  <div class="detail-item" v-if="importTaskStatus.result && importTaskStatus.result.results">
+                    <strong>处理结果：</strong>
+                    <ul class="result-list">
+                      <li v-for="(result, index) in importTaskStatus.result.results" :key="index">
+                        {{ result }}
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- 操作按钮 -->
+              <div class="progress-actions" v-if="importTaskStatus.status === 'completed' || importTaskStatus.status === 'failed'">
+                <button 
+                  class="btn primary-btn" 
+                  @click="resetImportForm"
+                  v-if="importTaskStatus.status === 'completed'"
+                >
+                  继续导入
+                </button>
+                <button 
+                  class="btn default-btn" 
+                  @click="stopPolling"
+                  v-if="importTaskStatus.status === 'failed'"
+                >
+                  重新尝试
+                </button>
+                <button 
+                  class="btn default-btn" 
+                  @click="clearTaskStatus"
+                >
+                  清除状态
+                </button>
               </div>
             </div>
           </div>
@@ -501,6 +640,17 @@ const alipayPassword = ref('');
 const wechatPassword = ref('');
 const billUser = ref('user1');
 
+// 导入状态管理
+const isImporting = ref(false);
+const importTaskStatus = ref({
+  task_id: '',
+  status: '', // pending, processing, completed, failed
+  progress: 0,
+  message: '',
+  result: null
+});
+const pollInterval = ref(null);
+
 // 待确认支出明细相关
 const pendingExpenseList = ref([]);
 const pendingCurrentPage = ref(1);
@@ -689,6 +839,108 @@ const handleFileUpload = (e) => {
   // 模拟文件上传处理
   console.log('上传文件：', e.target.files[0]);
 };
+
+// 开始轮询任务状态
+const startPolling = (taskId) => {
+  // 清除之前的轮询
+  if (pollInterval.value) {
+    clearInterval(pollInterval.value);
+  }
+  
+  // 设置新的轮询
+  pollInterval.value = setInterval(async () => {
+    try {
+      const res = await financeAPI.getImportStatus({
+        task_id: taskId
+      });
+      
+      if (res.data.code === 200) {
+        const taskData = res.data.data;
+        importTaskStatus.value = {
+          task_id: taskData.task_id,
+          status: taskData.status,
+          progress: taskData.progress,
+          message: taskData.message,
+          result: taskData.result
+        };
+        
+        // 如果任务完成或失败，停止轮询
+        if (taskData.status === 'completed' || taskData.status === 'failed') {
+          stopPolling();
+          isImporting.value = false;
+          
+          if (taskData.status === 'completed') {
+            ElMessage.success('账单导入成功');
+            // 重新加载待确认列表
+            await loadPendingExpenses(1);
+          } else {
+            ElMessage.error(`导入失败: ${taskData.message}`);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('轮询任务状态失败:', error);
+    }
+  }, 1000); // 每秒轮询一次
+};
+
+// 停止轮询
+const stopPolling = () => {
+  if (pollInterval.value) {
+    clearInterval(pollInterval.value);
+    pollInterval.value = null;
+  }
+};
+
+// 获取状态文本
+const getStatusText = (status) => {
+  const statusMap = {
+    'pending': '等待中',
+    'processing': '处理中',
+    'completed': '已完成',
+    'failed': '失败'
+  };
+  return statusMap[status] || status;
+};
+
+// 获取状态描述文本
+const getStatusDescription = (status) => {
+  const descMap = {
+    'pending': '任务已在队列中等待处理',
+    'processing': '正在处理账单数据，请耐心等待',
+    'completed': '账单导入成功完成',
+    'failed': '任务执行失败，请检查密码或联系管理员'
+  };
+  return descMap[status] || '';
+};
+
+// 获取进度条颜色
+const getProgressColor = (status, progress) => {
+  if (status === 'failed') return '#ff4d4f';
+  if (status === 'completed') return '#52c41a';
+  if (status === 'processing') {
+    // 根据进度变化颜色
+    if (progress < 30) return '#1890ff';
+    if (progress < 70) return '#40a9ff';
+    return '#73d13d';
+  }
+  return '#d9d9d9';
+};
+
+// 格式化时间显示
+const formatTime = (dateString) => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+};
+
 const importBill = async () => {
   // 验证输入
   if (!alipayPassword.value && !wechatPassword.value) {
@@ -697,6 +949,15 @@ const importBill = async () => {
   }
 
   try {
+    isImporting.value = true;
+    importTaskStatus.value = {
+      task_id: '',
+      status: 'pending',
+      progress: 0,
+      message: '正在启动导入任务...',
+      result: null
+    };
+    
     const selectedUser = familyMembers.value.find(member => member.username === searchForm.value.user);
     // 调用账单导入API
     const res = await financeAPI.importBill({
@@ -706,21 +967,39 @@ const importBill = async () => {
     });
 
     if (res.data.code === 200) {
-      ElMessage.success('账单导入成功');
-      // 重新加载待确认列表
-      await loadPendingExpenses(1);
+      // 启动轮询
+      const taskId = res.data.data.task_id;
+      importTaskStatus.value.task_id = taskId;
+      importTaskStatus.value.message = '任务已启动，正在处理中...';
+      startPolling(taskId);
     } else {
-      ElMessage.error(res.data.msg || '账单导入失败');
+      ElMessage.error(res.data.msg || '账单导入任务启动失败');
+      isImporting.value = false;
     }
   } catch (error) {
     console.error('账单导入错误:', error);
     ElMessage.error('账单导入失败，请稍后重试');
+    isImporting.value = false;
   }
 };
 const resetImportForm = () => {
   alipayPassword.value = '';
   wechatPassword.value = '';
   billUser.value = 'user1';
+};
+
+// 清除任务状态
+const clearTaskStatus = () => {
+  importTaskStatus.value = {
+    task_id: '',
+    status: 'pending',
+    progress: 0,
+    message: '',
+    result: null
+  };
+  isImporting.value = false;
+  stopPolling();
+  ElMessage.success('任务状态已清除');
 };
 
 // 重置支出明细查询表单
@@ -957,6 +1236,8 @@ onUnmounted(() => {
   if (trendChart) trendChart.dispose();
   if (expenseCategoryChart) expenseCategoryChart.dispose();
   if (incomeCategoryChart) incomeCategoryChart.dispose();
+  // 清理轮询
+  stopPolling();
 });
 </script>
 
@@ -1293,6 +1574,11 @@ onUnmounted(() => {
   font-size: 12px;
 }
 
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .small-input {
   padding: 4px 8px;
   font-size: 12px;
@@ -1384,6 +1670,345 @@ onUnmounted(() => {
   margin-top: 20px;
   padding-top: 10px;
   border-top: 1px solid #f0f0f0;
+}
+
+/* 导入进度样式 */
+.progress-container {
+  padding: 20px;
+}
+
+.progress-info {
+  margin-bottom: 15px;
+}
+
+.progress-text {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.status-badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status-badge.pending {
+  background-color: #e6f7ff;
+  color: #1890ff;
+  border: 1px solid #91d5ff;
+}
+
+.status-badge.processing {
+  background-color: #fffbe6;
+  color: #faad14;
+  border: 1px solid #ffe58f;
+}
+
+.status-badge.completed {
+  background-color: #f6ffed;
+  color: #52c41a;
+  border: 1px solid #b7eb8f;
+}
+
+.status-badge.failed {
+  background-color: #fff2f0;
+  color: #ff4d4f;
+  border: 1px solid #ffccc7;
+}
+
+/* 新增的进度显示样式 */
+
+/* 任务基本信息 */
+.task-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  border: 1px solid #e9ecef;
+}
+
+.info-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.task-id {
+  font-family: monospace;
+  font-size: 14px;
+  color: #666;
+  background-color: #e9ecef;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+/* 进度概览 */
+.progress-overview {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+  padding: 20px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.progress-main {
+  flex: 1;
+}
+
+.progress-description {
+  font-size: 14px;
+  color: #666;
+  line-height: 1.5;
+}
+
+.progress-stats {
+  display: flex;
+  gap: 20px;
+}
+
+.stat-item {
+  text-align: center;
+}
+
+.stat-number {
+  display: block;
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* 进度条容器 */
+.progress-bar-container {
+  margin-bottom: 30px;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 12px;
+  background-color: #f0f0f0;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 20px;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 6px;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* 步骤指示器 */
+.progress-steps {
+  display: flex;
+  justify-content: space-between;
+  position: relative;
+}
+
+.progress-steps::before {
+  content: '';
+  position: absolute;
+  top: 12px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: #e9ecef;
+  z-index: 1;
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 2;
+  position: relative;
+}
+
+.step-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: #e9ecef;
+  color: #999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  transition: all 0.3s ease;
+  border: 2px solid #e9ecef;
+}
+
+.step.active .step-icon {
+  background-color: #1890ff;
+  color: white;
+  border-color: #1890ff;
+  transform: scale(1.1);
+}
+
+.step.completed .step-icon {
+  background-color: #52c41a;
+  color: white;
+  border-color: #52c41a;
+}
+
+.step-label {
+  font-size: 12px;
+  color: #999;
+  text-align: center;
+  transition: color 0.3s ease;
+}
+
+.step.active .step-label {
+  color: #1890ff;
+  font-weight: 500;
+}
+
+.step.completed .step-label {
+  color: #52c41a;
+  font-weight: 500;
+}
+
+/* 详细信息 */
+.detail-section {
+  background-color: #fafafa;
+  border-radius: 8px;
+  padding: 20px;
+  border: 1px solid #f0f0f0;
+}
+
+.detail-section h4 {
+  margin: 0 0 15px 0;
+  font-size: 16px;
+  color: #333;
+  font-weight: 600;
+}
+
+.result-list {
+  margin: 8px 0 0 20px;
+  padding: 0;
+}
+
+.result-list li {
+  color: #666;
+  font-size: 13px;
+  line-height: 1.6;
+  margin-bottom: 5px;
+}
+
+/* 操作按钮 */
+.progress-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  padding-top: 20px;
+  border-top: 1px solid #f0f0f0;
+  margin-top: 20px;
+}
+
+.progress-percent {
+  font-weight: 600;
+  color: #333;
+}
+
+.progress-message {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 10px;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background-color: #f0f0f0;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 15px;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.progress-fill.processing {
+  background: linear-gradient(90deg, #1890ff, #40a9ff);
+}
+
+.progress-fill.completed {
+  background: linear-gradient(90deg, #52c41a, #73d13d);
+}
+
+.progress-fill.failed {
+  background: linear-gradient(90deg, #ff4d4f, #ff7875);
+}
+
+.progress-details {
+  background-color: #fafafa;
+  border-radius: 4px;
+  padding: 15px;
+  border: 1px solid #f0f0f0;
+}
+
+.detail-item {
+  margin-bottom: 10px;
+}
+
+.detail-item:last-child {
+  margin-bottom: 0;
+}
+
+.detail-item strong {
+  color: #333;
+  margin-right: 8px;
+}
+
+.detail-item ul {
+  margin: 5px 0 0 20px;
+  padding: 0;
+}
+
+.detail-item li {
+  color: #666;
+  font-size: 13px;
+  line-height: 1.4;
 }
 
 .page-info {

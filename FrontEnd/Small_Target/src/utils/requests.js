@@ -92,6 +92,9 @@ export const financeAPI = {
   // 账单导入
   importBill: (data) => service.post('/finance/import-bill/', data),
 
+  // 获取导入状态
+  getImportStatus: (params) => service.get('/finance/import-status/', { params }),
+
   // 用户邮箱配置
   getUserEmailConfig: () => service.get('/finance/user-email-config/'),
   setUserEmailConfig: (data) => service.post('/finance/user-email-config/', data),

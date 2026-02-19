@@ -7,4 +7,5 @@ urlpatterns = [
     path('pending-expense/', views.PendingExpenseListView.as_view(), name='pending_expense'),
     path('bill/', views.BillListView.as_view(), name='bill'),
     path('family-members/', views.FamilyMembersView.as_view(), name='family_members'),
+    path('import-status/', views.ImportBillView.as_view(), name='import_status'),  # 获取导入状态
 ]

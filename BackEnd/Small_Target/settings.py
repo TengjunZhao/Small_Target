@@ -203,3 +203,45 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# ========== Celery 配置 ==========
+# Broker 设置（开发环境使用内存，生产环境建议使用 Redis）
+CELERY_BROKER_URL = 'redis://127.0.0.1:6379/0'
+
+# 结果后端设置
+CELERY_RESULT_BACKEND = 'redis://127.0.0.1:6379/1'
+
+# 任务序列化设置
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_ACCEPT_CONTENT = ['json']
+
+# 时区设置
+CELERY_TIMEZONE = 'Asia/Shanghai'
+CELERY_ENABLE_UTC = False
+
+# 任务执行设置
+CELERY_TASK_ALWAYS_EAGER = False  # False表示异步执行，True表示同步执行（仅用于测试）
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1  # 每个worker预取的任务数
+CELERY_TASK_ACKS_LATE = True  # 任务执行完再确认
+CELERY_RESULT_EXPIRES = 3600 # 结果1小时后自动删除
+CELERY_TASK_TIME_LIMIT = 300  # 任务最长执行5分钟（超时强制终止）
+CELERY_TASK_SOFT_TIME_LIMIT = 270  # 软超时：270秒时发送警告，300秒强制终止
+
+# 任务重试配置（网络/临时故障时自动重试）
+CELERY_TASK_RETRY_ON_FAILURE = True  # 任务失败时自动重试
+CELERY_TASK_MAX_RETRIES = 3  # 最多重试3次
+CELERY_TASK_RETRY_DELAY = 5  # 每次重试间隔5秒
+
+CELERY_WORKER_CONCURRENCY = 1 # Windows环境下使用单进程避免权限问题
+CELERY_WORKER_MAX_TASKS_PER_CHILD = 1000  # 每个Worker执行1000个任务后自动重启
+
+# 任务路由设置
+# CELERY_TASK_ROUTES = {
+#     'finance.tasks.import_bill_task': {'queue': 'finance'},
+# }
+
+# 任务队列设置
+CELERY_TASK_DEFAULT_QUEUE = 'default'
+CELERY_TASK_DEFAULT_EXCHANGE = 'default'
+CELERY_TASK_DEFAULT_ROUTING_KEY = 'default'
