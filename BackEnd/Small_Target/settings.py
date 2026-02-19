@@ -247,6 +247,10 @@ CELERY_BROKER_URL = 'redis://127.0.0.1:6379/0'
 # 结果后端设置
 CELERY_RESULT_BACKEND = 'redis://127.0.0.1:6379/1'
 
+# Celery 适配Python 3.12 + Redis的配置
+# 关键：禁用旧的结果元数据解析逻辑
+CELERY_TASK_TRACK_STARTED = True
+
 # 任务序列化设置
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
@@ -254,7 +258,8 @@ CELERY_ACCEPT_CONTENT = ['json']
 
 # 时区设置
 CELERY_TIMEZONE = 'Asia/Shanghai'
-CELERY_ENABLE_UTC = False
+CELERY_ENABLE_UTC = True
+CELERY_RESULT_EXTENDED = False
 
 # 任务执行设置
 CELERY_TASK_ALWAYS_EAGER = False  # False表示异步执行，True表示同步执行（仅用于测试）
