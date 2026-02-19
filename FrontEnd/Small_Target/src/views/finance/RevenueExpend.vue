@@ -697,11 +697,12 @@ const importBill = async () => {
   }
 
   try {
+    const selectedUser = familyMembers.value.find(member => member.username === searchForm.value.user);
     // 调用账单导入API
     const res = await financeAPI.importBill({
       alipay_password: alipayPassword.value,
       wechat_password: wechatPassword.value,
-      user: billUser.value
+      user: selectedUser.user_id,
     });
 
     if (res.data.code === 200) {

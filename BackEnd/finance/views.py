@@ -22,6 +22,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from .models import UserProfile, Family, ExpendAlipay, ExpendWechat, ExpendMerged, BudgetCategory
 import logging
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -113,10 +114,10 @@ class MailHandler:
                         decoded_filename = email.header.make_header(email.header.decode_header(encoded_filename))
                         decoded_filename = str(decoded_filename)
                         logger.info(f'附件: {decoded_filename}')
-                        
+
                         downloads_folder = os.path.join(os.path.expanduser("~"), "Downloads")
                         save_path = os.path.join(downloads_folder, decoded_filename)
-                        
+
                         with open(save_path, 'wb') as f:
                             f.write(part.get_payload(decode=True))
                         logger.info(f'保存支付宝账单: {save_path}')
@@ -166,6 +167,7 @@ class MailHandler:
                         if chunk:
                             f.write(chunk)
                 logger.info(f'保存微信账单: {save_path}')
+                print(f'保存微信账单: {save_path}')
                 return save_path
             else:
                 logger.error('无法下载微信账单')
@@ -179,17 +181,13 @@ class ZipHandler:
     def __init__(self, file_path, file_password):
         self.file_path = file_path
         self.file_password = file_password
-        # 判断同步路径
-        if not os.path.exists('E:/Sync/personal'):
-            self.tar_path = 'D:/Sync/personal'
-        else:
-            self.tar_path = 'E:/Sync/personal'
+        self.tar_path = os.path.join(os.path.expanduser("~"), 'Downloads')
         self.extract_path = os.path.splitext(self.file_path)[0]
 
     def process_zip_file(self):
         try:
             if 'we' in self.file_path or '微信' in self.file_path:
-                self.extract_with_7z()
+                self.extract_zip_file()
             else:
                 self.extract_zip_file()
             
@@ -199,6 +197,7 @@ class ZipHandler:
             try:
                 os.remove(self.file_path)
                 shutil.rmtree(self.extract_path)
+                print(f"删除Zip文件成功")
                 return 'Process Success'
             except OSError as e:
                 logger.warning(f"文件删除失败: {e}")
@@ -211,17 +210,17 @@ class ZipHandler:
         with ZipFile(self.file_path) as zip_ref:
             zip_ref.extractall(path=self.extract_path, pwd=self.file_password)
 
-    def extract_with_7z(self):
-        seven_zip_path = r"C:\Program Files\7-Zip\7z.exe"
-        command = [
-            seven_zip_path, 'x', f'-p{self.file_password.decode()}',
-            f'-o{self.extract_path}', self.file_path
-        ]
-        try:
-            subprocess.run(command, check=True)
-            logger.info("解压成功！")
-        except subprocess.CalledProcessError as e:
-            logger.error(f"解压失败: {e}")
+    # def extract_with_7z(self):
+    #     seven_zip_path = r"C:\Program Files\7-Zip\7z.exe"
+    #     command = [
+    #         seven_zip_path, 'x', f'-p{self.file_password.decode()}',
+    #         f'-o{self.extract_path}', self.file_path
+    #     ]
+    #     try:
+    #         subprocess.run(command, check=True)
+    #         logger.info("解压成功！")
+    #     except subprocess.CalledProcessError as e:
+    #         logger.error(f"解压失败: {e}")
 
     def modify_csv_files(self):
         for root, dirs, files in os.walk(self.extract_path):
@@ -290,7 +289,6 @@ class ImportBillView(APIView):
             wechat_password = request.data.get('wechat_password', '')
             alipay_password = request.data.get('alipay_password', '')
             user_id = request.data.get('user', 'user1')
-            
             if not wechat_password and not alipay_password:
                 return Response({
                     'code': 400,
@@ -301,30 +299,30 @@ class ImportBillView(APIView):
             # 获取用户邮箱配置
             user = request.user
             family = None
-            
+
             # 检查用户是否配置了家庭信息
             try:
                 user_profile = UserProfile.objects.get(user=user)
                 family = user_profile.family
+                email_password = user_profile.mail_password
             except UserProfile.DoesNotExist:
                 return Response({
                     'code': 400,
                     'msg': '用户未配置家庭信息',
                     'data': None
                 }, status=status.HTTP_400_BAD_REQUEST)
-            
+
             # 使用Django内置User模型的email字段
             email_username = user.email
-            email_password = request.data.get('email_password', '')  # 邮箱密码需要另外提供或存储
-            
-            # 检查用户是否配置了邮箱
+
+            # # 检查用户是否配置了邮箱
             if not email_username:
                 return Response({
                     'code': 400,
                     'msg': '用户未配置邮箱信息，请在用户资料中设置邮箱',
                     'data': None
                 }, status=status.HTTP_400_BAD_REQUEST)
-            
+
             # 初始化邮件处理器
             mail_handler = MailHandler(email_username, email_password)
             if not mail_handler.login():
@@ -333,23 +331,30 @@ class ImportBillView(APIView):
                     'msg': '邮件服务器登录失败',
                     'data': None
                 }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-            
+            print('邮件服务器登录成功')
             # 获取邮件
-            file_list = mail_handler.get_mail()
+            # file_list = mail_handler.get_mail()
+            #################### 测试file_list
+            file_list = [r'C:\Users\Tengjun Zhao\Downloads\支付宝交易明细(20260119-20260219).zip',
+                         r'C:\Users\Tengjun Zhao\Downloads\wechat_bill_20260219_150138.zip']
+            wechat_password = '835557'
+            alipay_password = '354302'
+            #####################
+            print('获取邮件成功',file_list)
             if not file_list:
                 return Response({
                     'code': 200,
                     'msg': '未找到符合条件的账单邮件',
                     'data': {'processed_files': 0}
                 }, status=status.HTTP_200_OK)
-            
+
             # 处理解压密码
             password_dict = {}
             if alipay_password:
                 password_dict['ali'] = alipay_password.encode()
             if wechat_password:
                 password_dict['wechat'] = wechat_password.encode()
-            
+            print('处理解压密码成功',password_dict)
             # 处理ZIP文件
             results = []
             for file_path in file_list:
@@ -363,7 +368,7 @@ class ImportBillView(APIView):
                         zipfile_handler = ZipHandler(file_path, password_dict['wechat'])
                         result = zipfile_handler.process_zip_file()
                         results.append(f'微信处理: {result}')
-            
+            print('处理ZIP文件成功',results)
             # 调用数据合并逻辑
             self.merge_db_data(family, user)
             
@@ -388,21 +393,24 @@ class ImportBillView(APIView):
         """合并数据库数据，参考window.py的merge_db函数"""
         try:
             # 确定文件路径
-            sync_path = 'E:/Sync/personal' if os.path.exists('E:/Sync/personal') else 'D:/Sync/personal'
+            sync_path = os.path.join(os.path.expanduser("~"), 'Downloads')
             ali_file_path = os.path.join(sync_path, 'ali.xlsx')
             we_file_path = os.path.join(sync_path, 'we.xlsx')
             
             # 处理支付宝数据
             if os.path.exists(ali_file_path):
+                print(f"开始导入支付宝数据，文件路径为：{ali_file_path}")
                 self.import_alipay_data(ali_file_path, family, user)
-            
+                print("支付宝数据导入完成")
             # 处理微信数据
             if os.path.exists(we_file_path):
+                print(f"开始导入微信数据，文件路径为：{we_file_path}")
                 self.import_wechat_data(we_file_path, family, user)
-            
+                print("微信数据导入完成")
             # 合并数据到总表
+            print("开始合并数据到总表")
             self.merge_to_main_table(family)
-            
+            print("数据合并完成")
             # 清理临时文件
             try:
                 if os.path.exists(ali_file_path):
@@ -432,6 +440,8 @@ class ImportBillView(APIView):
                     trade_time = row.get('交易时间')
                     if isinstance(trade_time, str):
                         trade_time = datetime.datetime.strptime(trade_time, '%Y-%m-%d %H:%M:%S')
+                        # 调整时区，增加时区信息
+                        trade_time = timezone.make_aware(trade_time)
                     
                     price = float(row.get('金额(元)', 0))
                     in_out = '支出' if price < 0 else '收入'
@@ -493,9 +503,9 @@ class ImportBillView(APIView):
                     trade_time = row.get('交易时间')
                     if isinstance(trade_time, str):
                         trade_time = datetime.datetime.strptime(trade_time, '%Y-%m-%d %H:%M:%S')
-                    
+                        trade_time = timezone.make_aware(trade_time)
                     price = float(row.get('金额(元)', 0))
-                    in_out = '支出' if price < 0 else '收入'
+                    in_out = row.get('收/支')
                     commodity = str(row.get('商品', ''))[:100]
                     exchange = str(row.get('交易对方', ''))[:50]
                     status = str(row.get('当前状态', ''))[:50]

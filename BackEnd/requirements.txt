@@ -11,3 +11,4 @@ pandas==2.1.4
 openpyxl==3.1.2
 charset-normalizer==3.3.2
 chardet
+openpyxl

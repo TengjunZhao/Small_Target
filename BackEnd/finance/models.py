@@ -23,6 +23,7 @@ class UserProfile(models.Model):
     family = models.ForeignKey(Family, on_delete=models.CASCADE, null=True, blank=True, verbose_name="所属家庭")
     mobile = models.CharField(max_length=20, unique=True, verbose_name="手机号")
     is_admin = models.BooleanField(default=False, verbose_name="是否家庭管理员")
+    mail_password = models.CharField(max_length=50, null=True, blank=True, verbose_name="邮箱密码")
 
     class Meta:
         verbose_name = "用户财务信息"

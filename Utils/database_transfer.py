@@ -99,8 +99,73 @@ CONFLICT_FIELDS = {
     'budget_category': 'id',
     'expend_wechat': 'transaction_id',
     'expend_alipay': 'transaction_id',
-    'expend_merged': None  # 无冲突字段/暂不处理
+    'expend_merged': 'transaction_id'  # 添加冲突处理
 }
+
+
+# ---------------------- 辅助函数 ----------------------
+def clean_mysql_duplicates(mysql_conn, table_name, key_column):
+    """清理 MySQL 表中的重复数据，保留最小ID的记录"""
+    cursor = mysql_conn.cursor()
+    try:
+        # 查找重复的记录
+        check_sql = f"""
+            SELECT {key_column}, COUNT(*) as cnt 
+            FROM {table_name} 
+            GROUP BY {key_column} 
+            HAVING COUNT(*) > 1
+        """
+        cursor.execute(check_sql)
+        duplicates = cursor.fetchall()
+        
+        if duplicates:
+            print(f"发现 {len(duplicates)} 组重复的 {key_column} 数据")
+            
+            # 删除重复项，保留最小ID的记录
+            delete_sql = f"""
+                DELETE t1 FROM {table_name} t1
+                INNER JOIN {table_name} t2
+                WHERE t1.{key_column} = t2.{key_column}
+                AND t1.id > t2.id
+            """
+            cursor.execute(delete_sql)
+            mysql_conn.commit()
+            print(f"已清理 {cursor.rowcount} 条重复记录")
+        else:
+            print(f"表 {table_name} 中无重复数据")
+            
+    except Exception as e:
+        print(f"清理重复数据失败: {str(e)}")
+        mysql_conn.rollback()
+    finally:
+        cursor.close()
+
+
+def check_pg_duplicates(pg_conn, table_name, key_column):
+    """检查 PostgreSQL 表中是否存在重复数据"""
+    cursor = pg_conn.cursor()
+    try:
+        check_sql = f"""
+            SELECT {key_column}, COUNT(*) as cnt 
+            FROM {table_name} 
+            GROUP BY {key_column} 
+            HAVING COUNT(*) > 1
+            LIMIT 10
+        """
+        cursor.execute(check_sql)
+        duplicates = cursor.fetchall()
+        
+        if duplicates:
+            print(f"警告: PostgreSQL 表 {table_name} 中发现重复数据:")
+            for dup in duplicates:
+                print(f"  {key_column} = {dup[0]}, 出现次数: {dup[1]}")
+            return True
+        return False
+    except Exception as e:
+        print(f"检查重复数据失败: {str(e)}")
+        return False
+    finally:
+        cursor.close()
 
 
 # ---------------------- 核心同步函数 ----------------------
@@ -166,8 +231,31 @@ def sync_table(mysql_conn, pg_conn, mysql_table, pg_table):
 
         # 5. 批量插入 PostgreSQL
         pg_cursor = pg_conn.cursor()
-        extras.execute_batch(pg_cursor, insert_sql, rows, page_size=1000)
-        pg_conn.commit()
+        try:
+            extras.execute_batch(pg_cursor, insert_sql, rows, page_size=1000)
+            pg_conn.commit()
+        except psycopg2.errors.UniqueViolation as e:
+            # 处理重复键冲突
+            pg_conn.rollback()
+            print(f"检测到重复键冲突，正在处理...")
+            
+            # 方法1: 先删除重复数据再插入
+            if conflict_field:
+                # 获取所有 transaction_id
+                transaction_ids = [row[pg_columns.index(conflict_field)] for row in rows if row[pg_columns.index(conflict_field)] is not None]
+                if transaction_ids:
+                    # 删除已存在的记录
+                    delete_sql = f"DELETE FROM {pg_table} WHERE {conflict_field} = ANY(%s)"
+                    pg_cursor.execute(delete_sql, (transaction_ids,))
+                    pg_conn.commit()
+                    print(f"已删除 {pg_cursor.rowcount} 条重复记录")
+                    
+                    # 重新插入
+                    extras.execute_batch(pg_cursor, insert_sql, rows, page_size=1000)
+                    pg_conn.commit()
+                    print(f"重新插入 {len(rows)} 条记录成功")
+            else:
+                raise e  # 如果没有冲突字段配置，重新抛出异常
 
         print(f"【{mysql_table} → {pg_table}】同步成功，共 {len(data)} 条数据")
 
@@ -201,6 +289,22 @@ def main():
         mysql_conn.close()
         return
 
+    # 数据预处理阶段
+    print("\n=== 数据预处理阶段 ===")
+    
+    # 清理 MySQL 重复数据
+    for mysql_table, pg_table in TABLE_MAPPING.items():
+        if pg_table in ['expend_wechat', 'expend_alipay', 'expend_merged']:
+            clean_mysql_duplicates(mysql_conn, mysql_table, 'transaction_id')
+    
+    # 检查 PostgreSQL 重复数据
+    for mysql_table, pg_table in TABLE_MAPPING.items():
+        conflict_field = CONFLICT_FIELDS.get(pg_table)
+        if conflict_field and pg_table in ['expend_wechat', 'expend_alipay', 'expend_merged']:
+            check_pg_duplicates(pg_conn, pg_table, conflict_field)
+    
+    print("\n=== 开始数据同步 ===")
+    
     # 遍历表映射，逐个同步
     for mysql_table, pg_table in TABLE_MAPPING.items():
         # 跳过无字段映射的表（如 expend_merged）
