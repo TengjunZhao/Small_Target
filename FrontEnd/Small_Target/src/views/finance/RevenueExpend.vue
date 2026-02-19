@@ -169,7 +169,7 @@
                     <span class="progress-label">完成度</span>
                   </div>
                   <div class="progress-description">
-                    {{ getStatusDescription(importTaskStatus.status) }}
+                    {{ getStatusDescription(importTaskStatus.status, importTaskStatus.message) }}
                   </div>
                 </div>
                 <div class="progress-stats">
@@ -247,6 +247,20 @@
                       </li>
                     </ul>
                   </div>
+                </div>
+              </div>
+              
+              <!-- 错误详情显示 -->
+              <div class="error-details" v-if="importTaskStatus.status === 'failed' && importTaskStatus.message">
+                <div class="error-header">
+                  <span class="error-icon">⚠️</span>
+                  <strong>错误详情:</strong>
+                </div>
+                <div class="error-message">
+                  {{ importTaskStatus.message }}
+                </div>
+                <div class="error-timestamp" v-if="importTaskStatus.timestamp">
+                  发生时间: {{ formatTime(new Date(importTaskStatus.timestamp)) }}
                 </div>
               </div>
               
@@ -647,7 +661,9 @@ const importTaskStatus = ref({
   status: '', // pending, processing, completed, failed
   progress: 0,
   message: '',
-  result: null
+  result: null,
+  timestamp: null,
+  error_type: null
 });
 const pollInterval = ref(null);
 
@@ -861,7 +877,9 @@ const startPolling = (taskId) => {
           status: taskData.status,
           progress: taskData.progress,
           message: taskData.message,
-          result: taskData.result
+          result: taskData.result,
+          timestamp: taskData.timestamp || null,
+          error_type: taskData.error_type || null
         };
         
         // 如果任务完成或失败，停止轮询
@@ -904,14 +922,22 @@ const getStatusText = (status) => {
 };
 
 // 获取状态描述文本
-const getStatusDescription = (status) => {
+const getStatusDescription = (status, message = '') => {
   const descMap = {
     'pending': '任务已在队列中等待处理',
     'processing': '正在处理账单数据，请耐心等待',
     'completed': '账单导入成功完成',
     'failed': '任务执行失败，请检查密码或联系管理员'
   };
-  return descMap[status] || '';
+  
+  let baseDesc = descMap[status] || '';
+  
+  // 如果有具体的错误信息，添加到描述中
+  if (status === 'failed' && message) {
+    baseDesc += ` (${message})`;
+  }
+  
+  return baseDesc;
 };
 
 // 获取进度条颜色
@@ -2182,4 +2208,41 @@ onUnmounted(() => {
     display: block;
   }
 }
+
+/* 错误详情样式 */
+.error-details {
+  background-color: #fef0f0;
+  border: 1px solid #fbc4c4;
+  border-radius: 8px;
+  padding: 15px;
+  margin-top: 15px;
+}
+
+.error-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  color: #f56c6c;
+  font-size: 14px;
+}
+
+.error-icon {
+  font-size: 16px;
+}
+
+.error-message {
+  color: #606266;
+  font-size: 13px;
+  line-height: 1.5;
+  margin-bottom: 8px;
+  word-break: break-all;
+}
+
+.error-timestamp {
+  color: #909399;
+  font-size: 12px;
+  text-align: right;
+}
+
 </style>

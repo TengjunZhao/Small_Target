@@ -114,7 +114,13 @@ def import_bill_task(self, user_id, alipay_password='', wechat_password=''):
         self.update_state(state='PROGRESS', meta={'progress': 85, 'message': 'ZIP文件处理完成，正在合并数据到数据库'})
         
         # 调用数据合并逻辑
-        merge_db_data(family, user)
+        logger.info("开始调用数据合并逻辑")
+        try:
+            merge_db_data(family, user)
+            logger.info("数据合并逻辑执行完成")
+        except Exception as merge_error:
+            logger.error(f"数据合并过程中发生错误: {str(merge_error)}")
+            raise
         
         final_result = {
             'processed_files': len(file_list),
@@ -127,9 +133,46 @@ def import_bill_task(self, user_id, alipay_password='', wechat_password=''):
         return {'status': 'completed', 'result': final_result}
         
     except Exception as e:
-        logger.error(f"账单导入任务失败: {self.request.id}, 错误: {str(e)}")
-        # 简化错误处理，避免Windows平台上的序列化问题
-        return {'status': 'failed', 'message': str(e)}
+        import traceback
+        import sys
+        
+        # 详细的错误信息收集
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        error_details = {
+            'task_id': self.request.id,
+            'error_type': str(exc_type.__name__),
+            'error_message': str(exc_value),
+            'traceback': traceback.format_exc(),
+            'user_id': getattr(self, 'user_id', 'unknown'),
+            'timestamp': timezone.now().isoformat()
+        }
+        
+        # 记录详细错误日志
+        logger.error(f"=== 账单导入任务严重错误 ===")
+        logger.error(f"任务ID: {error_details['task_id']}")
+        logger.error(f"错误类型: {error_details['error_type']}")
+        logger.error(f"错误信息: {error_details['error_message']}")
+        logger.error(f"用户ID: {error_details['user_id']}")
+        logger.error(f"时间戳: {error_details['timestamp']}")
+        logger.error(f"完整堆栈追踪:\n{error_details['traceback']}")
+        logger.error("=" * 50)
+        
+        # 返回更详细的错误信息给前端
+        error_response = {
+            'status': 'failed',
+            'message': str(e),
+            'error_type': str(exc_type.__name__),
+            'task_id': self.request.id,
+            'timestamp': error_details['timestamp']
+        }
+        
+        # 在生产环境中，可以选择性地返回详细错误信息
+        # 但在开发环境中返回完整信息便于调试
+        import os
+        if os.getenv('DEBUG', 'False').lower() == 'true':
+            error_response['debug_info'] = error_details
+        
+        return error_response
 
 # 邮件处理类
 class MailHandler:
@@ -142,12 +185,19 @@ class MailHandler:
 
     def login(self):
         try:
+            logger.info(f"尝试连接邮件服务器: {self.imapServ}:{self.imapPort}")
             self.conn = imaplib.IMAP4_SSL(self.imapServ, self.imapPort)
+            logger.info(f"SSL连接建立成功，尝试登录用户: {self.username}")
             self.conn.login(self.username, self.password)
             logger.info(f"邮件服务器登录成功: {self.username}")
             return True
+        except imaplib.IMAP4.error as e:
+            logger.error(f"IMAP协议错误: {str(e)}")
+            return False
         except Exception as e:
             logger.error(f"邮件服务器登录失败: {str(e)}")
+            logger.error(f"用户名: {self.username}")
+            logger.error(f"服务器: {self.imapServ}:{self.imapPort}")
             return False
 
     def get_mail(self):
