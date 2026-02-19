@@ -69,12 +69,12 @@ def import_bill_task(self, user_id, alipay_password='', wechat_password=''):
         self.update_state(state='PROGRESS', meta={'progress': 20, 'message': '邮件服务器连接成功，正在获取账单邮件'})
         
         # 获取邮件
-        # file_list = mail_handler.get_mail()
+        file_list = mail_handler.get_mail()
         # 测试环境
-        file_list = [r'C:\Users\Zhao Tengjun\Downloads\支付宝交易明细(20260119-20260219).zip',
-                     r'C:\Users\Zhao Tengjun\Downloads\wechat_bill_20260219_150138.zip']
-        alipay_password = '354302'
-        wechat_password = '835557'
+        # file_list = [r'C:\Users\Zhao Tengjun\Downloads\支付宝交易明细(20260119-20260219).zip',
+        #              r'C:\Users\Zhao Tengjun\Downloads\wechat_bill_20260219_150138.zip']
+        # alipay_password = '354302'
+        # wechat_password = '835557'
         if not file_list:
             self.update_state(state='SUCCESS', meta={'progress': 100, 'message': '未找到符合条件的账单邮件', 'result': {'processed_files': 0}})
             return {'status': 'completed', 'result': {'processed_files': 0}}

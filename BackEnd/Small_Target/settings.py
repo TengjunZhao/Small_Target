@@ -203,7 +203,43 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
+LOG_DIR = BASE_DIR / "logs"
+if not LOG_DIR.exists():
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'file':{
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            # 日志文件放在项目目录，确保有权限写入
+            'filename': LOG_DIR.joinpath("django.log").as_posix(),
+            'encoding': 'utf-8',
+        },
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+        }
+    },
+    'loggers': {
+        # 'django': {
+        #     'handlers': ['file', 'console'],
+        #     'level': 'DEBUG',
+        #     'propagate': True,
+        # },
+        'celery': {
+            'handlers': ['file', 'console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+        'login': {
+            'handlers': ['file', 'console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+    },
+ }
 # ========== Celery 配置 ==========
 # Broker 设置（开发环境使用内存，生产环境建议使用 Redis）
 CELERY_BROKER_URL = 'redis://127.0.0.1:6379/0'
