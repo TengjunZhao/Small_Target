@@ -8,21 +8,31 @@ const service = axios.create({
   timeout: 5000
 })
 
-// 请求拦截器：携带Token
+// 请求拦截器：携带Token（排除登录相关请求）
 service.interceptors.request.use(
   (config) => {
-    // 从localStorage直接获取token，避免Pinia store在拦截器中的问题
-    const token = localStorage.getItem('token')
-    // console.log('请求拦截器 - Token:', token ? '存在' : '不存在')
-    // console.log('请求URL:', config.baseURL + config.url)
-    // console.log('localStorage中的token:', token)
-    // console.log('完整config:', JSON.stringify(config, null, 2))
+    // 检查是否为登录相关请求
+    const isAuthRequest = config.url.includes('/api/login/') ||
+                         config.url.includes('/api/register/') ||
+                         config.url.includes('/api/token/');
 
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
-      // console.log('已添加Authorization头:', config.headers.Authorization)
+    // 非登录请求才添加token
+    if (!isAuthRequest) {
+      // 从localStorage直接获取token，避免Pinia store在拦截器中的问题
+      const token = localStorage.getItem('token')
+      // console.log('请求拦截器 - Token:', token ? '存在' : '不存在')
+      // console.log('请求URL:', config.baseURL + config.url)
+      // console.log('localStorage中的token:', token)
+      // console.log('完整config:', JSON.stringify(config, null, 2))
+
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`
+        // console.log('已添加Authorization头:', config.headers.Authorization)
+      } else {
+        console.log('警告：未找到token，无法添加Authorization头')
+      }
     } else {
-      console.log('警告：未找到token，无法添加Authorization头')
+      console.log('登录相关请求，不添加Authorization头:', config.url)
     }
     return config
   },
@@ -92,7 +102,7 @@ export const financeAPI = {
 
   // 收支明细查询
   getBill: (params) => service.get('/finance/bill/', { params }),
-  
+
   // 家庭成员列表
   getFamilyMembers: () => service.get('/finance/family-members/'),
 }

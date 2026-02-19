@@ -41,7 +41,6 @@ const handleLogin = async () => {
     const res = await userStore.login(form.value)
     console.log('登录响应:', res)
     // console.log('当前token:', userStore.token)
-
     // 确保token已设置后再跳转
     if (userStore.token) {
       // console.log('登录成功获得的token:', userStore.token)
