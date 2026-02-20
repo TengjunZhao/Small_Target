@@ -51,6 +51,7 @@ FIELD_MAPPING = {
         'trade_time': 'trade_time',
         'trade_category': 'trade_catgry',  # PG.trade_category 对应 MySQL.trade_catgry
         'commodity': 'commodity',
+        'person': 'person',
         'in_out': 'in_out',
         'price': 'price',
         'exchange': 'exchange',
@@ -59,11 +60,13 @@ FIELD_MAPPING = {
         'remark': 'remark',
         'budget_id': None,  # 暂为空（可根据业务关联补充）
         'user_id': 1,  # 补充默认值（根据实际业务调整）
-        'family_id': 1  # 补充默认值（根据实际业务调整）
+        'family_id': 1,  # 补充默认值（根据实际业务调整）
+        'belonging': 'belonging',
     },
     'expend_alipay': {
         'transaction_id': 'transaction_id',
         'in_out': 'in_out',
+        'person': 'person',
         'person_account': 'person_account',
         'commodity': 'commodity',
         'exchange': 'exchange',
@@ -75,7 +78,8 @@ FIELD_MAPPING = {
         'remark': 'remark',
         'budget_id': None,  # 暂为空（可根据业务关联补充）
         'user_id': 1,  # 补充默认值（根据实际业务调整）
-        'family_id': 1  # 补充默认值（根据实际业务调整）
+        'family_id': 1,  # 补充默认值（根据实际业务调整）
+        'belonging': 'belonging',
     },
     'expend_merged': {
         'transaction_id': 'transaction_id',  # 主键，严格对应

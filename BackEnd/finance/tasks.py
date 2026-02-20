@@ -441,7 +441,7 @@ def merge_db_data(family, user):
         sync_path = os.path.join(os.path.expanduser("~"), 'Downloads')
         ali_file_path = os.path.join(sync_path, 'ali.xlsx')
         we_file_path = os.path.join(sync_path, 'we.xlsx')
-        
+        logger.info(f"Family",family, "User", user)
         # 处理支付宝数据
         if os.path.exists(ali_file_path):
             logger.info(f"开始导入支付宝数据，文件路径为：{ali_file_path}")
@@ -456,7 +456,7 @@ def merge_db_data(family, user):
         
         # 合并数据到总表
         logger.info("开始合并数据到总表")
-        merge_to_main_table(family)
+        merge_to_main_table(family,  user)
         logger.info("数据合并完成")
         
         # 清理临时文件
@@ -524,6 +524,7 @@ def import_alipay_data(file_path, family, user):
                 price = float(row.get('金额(元)', 0))
                 in_out = '支出' if price < 0 else '收入'
                 commodity = str(row.get('商品说明', ''))[:100]
+                person = str(row.get('交易对方', ''))[:100]
                 exchange = str(row.get('交易对方', ''))[:50]
                 status = str(row.get('交易状态', ''))[:50]
                 trade_category = str(row.get('收/支', ''))[:50]
@@ -547,6 +548,7 @@ def import_alipay_data(file_path, family, user):
                         'user': user,
                         'person_account': str(row.get('支付宝账户', ''))[:100],
                         'commodity': commodity,
+                        'person': person,
                         'exchange': exchange,
                         'price': abs(price),
                         'status': status,
@@ -554,7 +556,9 @@ def import_alipay_data(file_path, family, user):
                         'tenant_id': str(row.get('商户订单号', ''))[:100],
                         'trade_time': trade_time,
                         'budget': budget_category,
-                        'remark': str(row.get('备注', ''))[:255]
+                        'remark': str(row.get('备注', ''))[:255],
+                        'user_id': user.id,
+                        'family_id': family.id
                     }
                 )
             except Exception as e:
@@ -593,6 +597,7 @@ def import_wechat_data(file_path, family, user):
                 exchange = str(row.get('交易对方', ''))[:50]
                 status = str(row.get('当前状态', ''))[:50]
                 trade_category = str(row.get('交易类型', ''))[:50]
+                person = str(row.get('交易对方', ''))[:100]
                 
                 # 获取或创建预算分类
                 budget_category = None
@@ -611,6 +616,7 @@ def import_wechat_data(file_path, family, user):
                         'family': family,
                         'trade_time': trade_time,
                         'trade_category': trade_category,
+                        'person': person,
                         'user': user,
                         'commodity': commodity,
                         'in_out': in_out,
@@ -619,7 +625,9 @@ def import_wechat_data(file_path, family, user):
                         'status': status,
                         'tenant_id': str(row.get('商户单号', ''))[:100],
                         'remark': str(row.get('备注', ''))[:50],
-                        'budget': budget_category
+                        'budget': budget_category,
+                        'user_id': user.id,
+                        'family_id': family.id
                     }
                 )
             except Exception as e:
@@ -630,7 +638,7 @@ def import_wechat_data(file_path, family, user):
         logger.error(f"导入微信数据失败: {str(e)}")
         raise
 
-def merge_to_main_table(family):
+def merge_to_main_table(family, user):
     """合并到主收支表"""
     try:
         from .models import ExpendAlipay, ExpendWechat, ExpendMerged
@@ -646,11 +654,14 @@ def merge_to_main_table(family):
                 record.budget.id if record.budget else None,
                 record.commodity,
                 record.in_out,
-                record.user.username if record.user else '',
+                record.person,
                 record.price,
                 record.status,
+                record.exchange,
                 record.trade_time,
-                '户主'  # TODO: 根据实际业务逻辑确定归属
+                record.belonging,
+                family.id,
+                user.id,
             ])
         
         # 获取微信数据
@@ -663,11 +674,13 @@ def merge_to_main_table(family):
                 record.budget.id if record.budget else None,
                 record.commodity,
                 record.in_out,
-                record.user.username if record.user else '',
+                record.person,
                 record.price,
                 record.status,
                 record.trade_time,
-                '户主'  # TODO: 根据实际业务逻辑确定归属
+                record.belonging,
+                family.id,
+                user.id,
             ])
         
         # 合并数据
@@ -679,15 +692,16 @@ def merge_to_main_table(family):
                 ExpendMerged.objects.update_or_create(
                     transaction_id=data[0],
                     defaults={
-                        'family': family,
                         'expend_channel': data[1].lower(),
-                        'budget_id': data[2],
+                        # 'budget_id': data[2],
                         'commodity': data[3][:100],
                         'in_out': data[4][:5],
-                        'user': User.objects.get(username=data[5]) if data[5] else None,
+                        'person': data[5][:100],
                         'price': data[6],
                         'status': data[7][:255],
                         'trade_time': data[8],
+                        'user': data[10],
+                        'family': data[11],
                     }
                 )
             except Exception as e:

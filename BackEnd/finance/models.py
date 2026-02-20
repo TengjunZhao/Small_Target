@@ -123,12 +123,11 @@ class BudgetCategory(models.Model):
 class ExpendAlipay(models.Model):
     """支付宝账单表"""
     transaction_id = models.CharField(max_length=100, primary_key=True, verbose_name="交易ID")
-    family = models.ForeignKey(Family, on_delete=models.CASCADE, verbose_name="所属家庭")
     in_out = models.CharField(max_length=5, verbose_name="收支类型（收入/支出）")
-    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="归属人")
+    person = models.CharField(max_length=100, null=True, blank=True, verbose_name="交易方")
     person_account = models.CharField(max_length=100, null=True, blank=True, verbose_name="支付宝账号")
     commodity = models.CharField(max_length=100, null=True, blank=True, verbose_name="商品/备注")
-    exchange = models.CharField(max_length=50, null=True, blank=True, verbose_name="交易对方")
+    exchange = models.CharField(max_length=50, null=True, blank=True, verbose_name="交易方式")
     price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="金额（元）")
     status = models.CharField(max_length=50, null=True, blank=True, verbose_name="交易状态")
     trade_category = models.CharField(max_length=50, null=True, blank=True, verbose_name="交易类目")
@@ -136,6 +135,9 @@ class ExpendAlipay(models.Model):
     trade_time = models.DateTimeField(verbose_name="交易时间")
     budget = models.ForeignKey(BudgetCategory, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="关联支出类目")
     remark = models.CharField(max_length=255, null=True, blank=True, verbose_name="备注")
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="归属人")
+    family = models.ForeignKey(Family, on_delete=models.CASCADE, verbose_name="所属家庭")
+    belonging = models.CharField(max_length=100, null=True, blank=True, verbose_name="备注")
 
     class Meta:
         verbose_name = "支付宝账单"
@@ -147,18 +149,20 @@ class ExpendAlipay(models.Model):
 class ExpendWechat(models.Model):
     """微信账单表"""
     transaction_id = models.CharField(max_length=100, primary_key=True, verbose_name="交易ID")
-    family = models.ForeignKey(Family, on_delete=models.CASCADE, verbose_name="所属家庭")
     trade_time = models.DateTimeField(verbose_name="交易时间")
     trade_category = models.CharField(max_length=50, null=True, blank=True, verbose_name="交易类目")
-    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="归属人")
+    person = models.CharField(max_length=100, null=True, blank=True, verbose_name="交易方")
     commodity = models.CharField(max_length=100, null=True, blank=True, verbose_name="商品/备注")
     in_out = models.CharField(max_length=10, verbose_name="收支类型（收入/支出）")
     price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="金额（元）")
-    exchange = models.CharField(max_length=50, null=True, blank=True, verbose_name="交易对方")
+    exchange = models.CharField(max_length=50, null=True, blank=True, verbose_name="交易方式")
     status = models.CharField(max_length=50, null=True, blank=True, verbose_name="交易状态")
     tenant_id = models.CharField(max_length=100, null=True, blank=True, verbose_name="商户ID")
     remark = models.CharField(max_length=50, null=True, blank=True, verbose_name="备注")
     budget = models.ForeignKey(BudgetCategory, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="关联支出类目")
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="归属人")
+    family = models.ForeignKey(Family, on_delete=models.CASCADE, verbose_name="所属家庭")
+    belonging = models.CharField(max_length=100, null=True, blank=True, verbose_name="备注")
 
     class Meta:
         verbose_name = "微信账单"
@@ -184,7 +188,7 @@ class ExpendMerged(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="金额（元）")
     status = models.CharField(max_length=50, null=True, blank=True, verbose_name="交易状态")
     trade_time = models.DateTimeField(verbose_name="交易时间")
-    belonging = models.CharField(max_length=100, null=True, blank=True, verbose_name="归属")
+    belonging = models.CharField(max_length=100, null=True, blank=True, verbose_name="备注")
     family = models.ForeignKey(Family, on_delete=models.CASCADE, verbose_name="所属家庭")
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="归属人")
 
