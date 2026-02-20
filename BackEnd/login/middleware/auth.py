@@ -14,9 +14,11 @@ class AuthMiddleware:
             '/api/login/',          # 登录接口
             '/admin/',              # Django 后台
             '/api/token/refresh/',  # Token 刷新接口
+            '/api/login/register/'
         ]
         if any(request.path.startswith(path) for path in exempt_paths):
             response = self.get_response(request)
+            print(f"DEBUG Middleware: Response: {response}")
             return response
 
         # 2. 校验 Token

@@ -38,6 +38,7 @@ const route = useRoute()
 const handleLogin = async () => {
   try {
     console.log('开始登录...')
+    console.log('登录前localStorage中的token:', localStorage.getItem('token'))
     const res = await userStore.login(form.value)
     console.log('登录响应:', res)
     // console.log('当前token:', userStore.token)
@@ -69,6 +70,12 @@ const handleLogin = async () => {
     }
   } catch (error) {
     console.error('登录错误:', error)
+    console.error('错误详情:', {
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      message: error.message
+    })
     ElMessage.error('账号或密码错误')
   }
 }

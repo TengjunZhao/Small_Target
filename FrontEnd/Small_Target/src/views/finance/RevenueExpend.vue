@@ -131,9 +131,9 @@
                 </div>
               </div>
               <div class="form-actions">
-                <button 
-                  class="btn primary-btn" 
-                  @click="importBill" 
+                <button
+                  class="btn primary-btn"
+                  @click="importBill"
                   :disabled="isImporting"
                 >
                   {{ isImporting ? '导入中...' : '导入账单' }}
@@ -160,7 +160,7 @@
                   </span>
                 </div>
               </div>
-              
+
               <!-- 进度概览 -->
               <div class="progress-overview">
                 <div class="progress-main">
@@ -183,42 +183,42 @@
                   </div>
                 </div>
               </div>
-              
+
               <!-- 进度条 -->
               <div class="progress-bar-container">
                 <div class="progress-bar">
-                  <div 
-                    class="progress-fill" 
-                    :style="{ 
+                  <div
+                    class="progress-fill"
+                    :style="{
                       width: importTaskStatus.progress + '%',
                       backgroundColor: getProgressColor(importTaskStatus.status, importTaskStatus.progress)
                     }"
                   ></div>
                 </div>
                 <div class="progress-steps">
-                  <div 
-                    class="step" 
+                  <div
+                    class="step"
                     :class="{ active: importTaskStatus.progress >= 25, completed: importTaskStatus.progress > 25 }"
                   >
                     <div class="step-icon">1</div>
                     <div class="step-label">启动任务</div>
                   </div>
-                  <div 
-                    class="step" 
+                  <div
+                    class="step"
                     :class="{ active: importTaskStatus.progress >= 50, completed: importTaskStatus.progress > 50 }"
                   >
                     <div class="step-icon">2</div>
                     <div class="step-label">处理数据</div>
                   </div>
-                  <div 
-                    class="step" 
+                  <div
+                    class="step"
                     :class="{ active: importTaskStatus.progress >= 75, completed: importTaskStatus.progress > 75 }"
                   >
                     <div class="step-icon">3</div>
                     <div class="step-label">合并记录</div>
                   </div>
-                  <div 
-                    class="step" 
+                  <div
+                    class="step"
                     :class="{ active: importTaskStatus.progress >= 100, completed: importTaskStatus.status === 'completed' }"
                   >
                     <div class="step-icon">✓</div>
@@ -226,7 +226,7 @@
                   </div>
                 </div>
               </div>
-              
+
               <!-- 详细信息 -->
               <div class="progress-details" v-if="importTaskStatus.result || importTaskStatus.message">
                 <div class="detail-section">
@@ -249,7 +249,7 @@
                   </div>
                 </div>
               </div>
-              
+
               <!-- 错误详情显示 -->
               <div class="error-details" v-if="importTaskStatus.status === 'failed' && importTaskStatus.message">
                 <div class="error-header">
@@ -263,25 +263,25 @@
                   发生时间: {{ formatTime(new Date(importTaskStatus.timestamp)) }}
                 </div>
               </div>
-              
+
               <!-- 操作按钮 -->
               <div class="progress-actions" v-if="importTaskStatus.status === 'completed' || importTaskStatus.status === 'failed'">
-                <button 
-                  class="btn primary-btn" 
+                <button
+                  class="btn primary-btn"
                   @click="resetImportForm"
                   v-if="importTaskStatus.status === 'completed'"
                 >
                   继续导入
                 </button>
-                <button 
-                  class="btn default-btn" 
+                <button
+                  class="btn default-btn"
                   @click="stopPolling"
                   v-if="importTaskStatus.status === 'failed'"
                 >
                   重新尝试
                 </button>
-                <button 
-                  class="btn default-btn" 
+                <button
+                  class="btn default-btn"
                   @click="clearTaskStatus"
                 >
                   清除状态
@@ -850,11 +850,6 @@ const confirmExpense = async (index) => {
   }
 };
 
-// 支出导入方法
-const handleFileUpload = (e) => {
-  // 模拟文件上传处理
-  console.log('上传文件：', e.target.files[0]);
-};
 
 // 开始轮询任务状态
 const startPolling = (taskId) => {
@@ -862,14 +857,14 @@ const startPolling = (taskId) => {
   if (pollInterval.value) {
     clearInterval(pollInterval.value);
   }
-  
+
   // 设置新的轮询
   pollInterval.value = setInterval(async () => {
     try {
       const res = await financeAPI.getImportStatus({
         task_id: taskId
       });
-      
+
       if (res.data.code === 200) {
         const taskData = res.data.data;
         importTaskStatus.value = {
@@ -881,12 +876,13 @@ const startPolling = (taskId) => {
           timestamp: taskData.timestamp || null,
           error_type: taskData.error_type || null
         };
-        
+        console.log('任务状态:', importTaskStatus.value)
+
         // 如果任务完成或失败，停止轮询
         if (taskData.status === 'completed' || taskData.status === 'failed') {
           stopPolling();
           isImporting.value = false;
-          
+
           if (taskData.status === 'completed') {
             ElMessage.success('账单导入成功');
             // 重新加载待确认列表
@@ -927,16 +923,20 @@ const getStatusDescription = (status, message = '') => {
     'pending': '任务已在队列中等待处理',
     'processing': '正在处理账单数据，请耐心等待',
     'completed': '账单导入成功完成',
-    'failed': '任务执行失败，请检查密码或联系管理员'
+    'failed': ''
   };
-  
+
   let baseDesc = descMap[status] || '';
-  
+
   // 如果有具体的错误信息，添加到描述中
   if (status === 'failed' && message) {
-    baseDesc += ` (${message})`;
+    console.log('错误信息:', message)
+    baseDesc = message;
   }
-  
+  else{
+    baseDesc = descMap[status] || '';
+  }
+
   return baseDesc;
 };
 
@@ -983,7 +983,7 @@ const importBill = async () => {
       message: '正在启动导入任务...',
       result: null
     };
-    
+
     const selectedUser = familyMembers.value.find(member => member.username === searchForm.value.user);
     // 调用账单导入API
     const res = await financeAPI.importBill({

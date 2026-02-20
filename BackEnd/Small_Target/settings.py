@@ -231,7 +231,7 @@ LOGGING = {
         'celery': {
             'handlers': ['file', 'console'],
             'level': 'DEBUG',
-            'propagate': True,
+            'propagate': False,
         },
         'login': {
             'handlers': ['file', 'console'],

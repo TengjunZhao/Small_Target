@@ -12,7 +12,7 @@ const service = axios.create({
 service.interceptors.request.use(
   (config) => {
     // 检查是否为登录相关请求
-    const isAuthRequest = config.url.includes('/api/login/') ||
+    const isAuthRequest = config.url.endsWith('/api/login/') ||
                          config.url.includes('/api/register/') ||
                          config.url.includes('/api/token/');
 

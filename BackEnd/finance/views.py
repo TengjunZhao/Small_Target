@@ -77,46 +77,19 @@ class ImportBillView(APIView):
         """获取任务状态"""
         task_id = request.GET.get('task_id')
         if not task_id:
-            return Response({
-                'code': 400,
-                'msg': '缺少任务ID参数',
-                'data': None
-            }, status=status.HTTP_400_BAD_REQUEST)
+            return self._bad_request_response('缺少任务ID参数')
         
         try:
             # 获取任务状态
             task = import_bill_task.AsyncResult(task_id)
             
-            # 使用 Celery 状态
-            status_map = {
-                'PENDING': 'pending',
-                'STARTED': 'processing',
-                'PROGRESS': 'processing',
-                'SUCCESS': 'completed',
-                'FAILURE': 'failed',
-                'REVOKED': 'failed'
-            }
+            # 提取任务状态信息
+            task_info = self._extract_task_info(task)
             
-            # 尝试获取任务状态，处理 DisabledBackend 异常
-            try:
-                task_state = task.state
-                progress_info = task.info if hasattr(task, 'info') else {}
-            except Exception as e:
-                # 如果结果后端被禁用，返回默认状态
-                logger.warning(f"结果后端不可用: {str(e)}")
-                task_state = 'PENDING'
-                progress_info = {}
+            # 构建响应数据
+            status_data = self._build_status_response(task_id, task_info)
             
-            status_data = {
-                'task_id': task_id,
-                'status': status_map.get(task_state, 'pending'),
-                'progress': progress_info.get('progress', 0) if isinstance(progress_info, dict) else 0,
-                'message': progress_info.get('message', f'任务状态: {task_state}') if isinstance(progress_info, dict) else f'任务状态: {task_state}',
-                'result': progress_info.get('result', None) if isinstance(progress_info, dict) else None,
-                'created_at': None,
-                'updated_at': None
-            }
-            
+            logger.info(f"任务状态获取成功: {status_data}")
             return Response({
                 'code': 200,
                 'msg': '获取任务状态成功',
@@ -124,14 +97,126 @@ class ImportBillView(APIView):
             }, status=status.HTTP_200_OK)
             
         except Exception as e:
-            logger.error(f"获取任务状态失败: {str(e)}")
-            return Response({
-                'code': 500,
-                'msg': f'获取任务状态失败: {str(e)}',
-                'data': None
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            logger.error(f"获取任务状态失败: {str(e)}", exc_info=True)
+            return self._error_response(f'获取任务状态失败: {str(e)}')
 
-# 待确认支出明细API视图
+    def _bad_request_response(self, message):
+        """构建400错误响应"""
+        return Response({
+            'code': 400,
+            'msg': message,
+            'data': None
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    def _error_response(self, message):
+        """构建500错误响应"""
+        return Response({
+            'code': 500,
+            'msg': message,
+            'data': None
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def _extract_task_info(self, task):
+        """提取任务状态和详细信息"""
+        status_map = {
+            'PENDING': 'pending',
+            'STARTED': 'processing',
+            'PROGRESS': 'processing',
+            'SUCCESS': 'completed',
+            'FAILURE': 'failed',
+            'REVOKED': 'failed'
+        }
+        
+        try:
+            task_state = task.state
+            logger.info(f"任务状态: {task_state}")
+            
+            # 获取任务元数据
+            progress_info = self._get_task_metadata(task, task_state)
+            
+            return {
+                'state': task_state,
+                'status': status_map.get(task_state, 'pending'),
+                'info': progress_info
+            }
+            
+        except Exception as e:
+            logger.warning(f"获取任务详细信息失败: {str(e)}")
+            # 即使出错也要返回基本信息
+            fallback_state = getattr(task, 'state', 'PENDING') if hasattr(task, 'state') else 'PENDING'
+            return {
+                'state': fallback_state,
+                'status': status_map.get(fallback_state, 'pending'),
+                'info': {
+                    'message': f'无法获取详细状态信息: {str(e)}',
+                    'progress': 0
+                }
+            }
+    
+    def _get_task_metadata(self, task, task_state):
+        """获取任务的元数据信息"""
+        progress_info = {}
+        
+        # 获取通过 update_state 设置的元数据
+        if hasattr(task, 'info') and task.info:
+            progress_info = task.info if isinstance(task.info, dict) else {}
+            logger.info(f"获取到的任务info: {progress_info}")
+        else:
+            logger.info("未获取到任务info")
+        
+        # FAILURE 状态下获取异常信息
+        if task_state == 'FAILURE':
+            self._extract_failure_info(task, progress_info)
+            
+        return progress_info
+    
+    def _extract_failure_info(self, task, progress_info):
+        """提取失败任务的详细信息"""
+        try:
+            # 获取异常traceback
+            exception_info = getattr(task, 'traceback', None)
+            if exception_info:
+                progress_info['exception_traceback'] = exception_info
+                logger.info("获取到异常traceback信息")
+                
+            # 获取异常类型和消息（如果有的话）
+            if hasattr(task, 'result') and isinstance(getattr(task, 'result', None), Exception):
+                exc = task.result
+                progress_info['exc_type'] = type(exc).__name__
+                progress_info['exc_message'] = str(exc)
+                
+        except Exception as trace_error:
+            logger.warning(f"获取failure信息失败: {trace_error}")
+    
+    def _build_status_response(self, task_id, task_info):
+        """构建状态响应数据"""
+        progress_info = task_info['info']
+        
+        status_data = {
+            'task_id': task_id,
+            'status': task_info['status'],
+            'progress': progress_info.get('progress', 0),
+            'message': self._get_status_message(progress_info, task_info['state']),
+            'result': progress_info.get('result'),
+            'exception_type': progress_info.get('exc_type'),
+            'exception_message': progress_info.get('exc_message'),
+            'created_at': None,
+            'updated_at': None
+        }
+        
+        # 优先显示详细的异常信息
+        if status_data['exception_message']:
+            status_data['message'] = status_data['exception_message']
+            
+        return status_data
+    
+    def _get_status_message(self, progress_info, task_state):
+        """获取状态消息"""
+        # 优先使用progress_info中的消息
+        if progress_info.get('message'):
+            return progress_info['message']
+        # 否则使用默认状态消息
+        return f'任务状态: {task_state}'
 class PendingExpenseListView(APIView):
     permission_classes = [IsAuthenticated]
     

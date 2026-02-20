@@ -80,9 +80,8 @@ def import_bill_task(self, user_id, alipay_password='', wechat_password=''):
         # alipay_password = '354302'
         # wechat_password = '835557'
         if not file_list:
-            self.update_state(state='SUCCESS', meta={'progress': 100, 'message': '未找到符合条件的账单邮件',
-                                                     'result': {'processed_files': 0}})
-            return {'status': 'completed', 'result': {'processed_files': 0}}
+            # 修改：不直接设置为SUCCESS，而是抛出业务异常让前台显示未找到文件
+            raise BillImportError('未找到符合条件的账单邮件')
         
         self.update_state(state='PROGRESS', meta={'progress': 30, 'message': f'获取到 {len(file_list)} 个账单文件，正在处理解压密码'})
         
@@ -137,6 +136,21 @@ def import_bill_task(self, user_id, alipay_password='', wechat_password=''):
         logger.info(f"账单导入任务完成: {self.request.id}")
         return {'status': 'completed', 'result': final_result}
         
+    except BillImportError as business_error:
+        # 业务异常：更新任务状态为失败，并包含业务错误信息
+        logger.warning(f"业务异常: {business_error.message}")
+        logger.info(business_error)
+        self.update_state(
+            state='FAILURE',
+            meta={
+                'exc_type': business_error.error_type,
+                'exc_message': business_error.message,
+                'progress': 0,
+                'message': business_error.message
+            }
+        )
+        # 重新抛出异常，让 Celery 处理
+        raise business_error
     except Exception as e:
         # 系统异常：收集详细信息，重新抛出
         import traceback
