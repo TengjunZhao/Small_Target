@@ -19,6 +19,14 @@ import requests
 
 logger = logging.getLogger(__name__)
 
+# ========== 新增：自定义异常类（用于传递业务错误信息） ==========
+class BillImportError(Exception):
+    """账单导入业务异常"""
+    def __init__(self, message, error_type="BusinessError"):
+        self.message = message
+        self.error_type = error_type
+        super().__init__(self.message)
+
 @shared_task(bind=True)
 def import_bill_task(self, user_id, alipay_password='', wechat_password=''):
     """
@@ -49,22 +57,18 @@ def import_bill_task(self, user_id, alipay_password='', wechat_password=''):
         # 获取邮箱配置
         email_username = user.email
         email_password = user_profile.mail_password
-        
+        # ========== 修改1：删除 self.update_state(FAILURE)，改为抛出自定义异常 ==========
         if not email_username:
-            self.update_state(state='FAILURE', meta={'message': '用户未配置邮箱信息'})
-            return {'status': 'failed', 'message': '用户未配置邮箱信息'}
-        
+            raise BillImportError('用户未配置邮箱信息')
+
         if not email_password:
-            self.update_state(state='FAILURE', meta={'message': '用户未配置邮箱密码'})
-            return {'status': 'failed', 'message': '用户未配置邮箱密码'}
-        
+            raise BillImportError('用户未配置邮箱密码')
         self.update_state(state='PROGRESS', meta={'progress': 10, 'message': '正在连接邮件服务器'})
         
         # 初始化邮件处理器
         mail_handler = MailHandler(email_username, email_password)
         if not mail_handler.login():
-            self.update_state(state='FAILURE', meta={'message': '邮件服务器登录失败'})
-            return {'status': 'failed', 'message': '邮件服务器登录失败'}
+            raise BillImportError('邮件服务器登录失败')  # 同样抛异常
         
         self.update_state(state='PROGRESS', meta={'progress': 20, 'message': '邮件服务器连接成功，正在获取账单邮件'})
         
@@ -76,7 +80,8 @@ def import_bill_task(self, user_id, alipay_password='', wechat_password=''):
         # alipay_password = '354302'
         # wechat_password = '835557'
         if not file_list:
-            self.update_state(state='SUCCESS', meta={'progress': 100, 'message': '未找到符合条件的账单邮件', 'result': {'processed_files': 0}})
+            self.update_state(state='SUCCESS', meta={'progress': 100, 'message': '未找到符合条件的账单邮件',
+                                                     'result': {'processed_files': 0}})
             return {'status': 'completed', 'result': {'processed_files': 0}}
         
         self.update_state(state='PROGRESS', meta={'progress': 30, 'message': f'获取到 {len(file_list)} 个账单文件，正在处理解压密码'})
@@ -133,21 +138,19 @@ def import_bill_task(self, user_id, alipay_password='', wechat_password=''):
         return {'status': 'completed', 'result': final_result}
         
     except Exception as e:
+        # 系统异常：收集详细信息，重新抛出
         import traceback
         import sys
-        
-        # 详细的错误信息收集
         exc_type, exc_value, exc_traceback = sys.exc_info()
         error_details = {
             'task_id': self.request.id,
             'error_type': str(exc_type.__name__),
             'error_message': str(exc_value),
             'traceback': traceback.format_exc(),
-            'user_id': getattr(self, 'user_id', 'unknown'),
+            'user_id': user_id,
             'timestamp': timezone.now().isoformat()
         }
-        
-        # 记录详细错误日志
+
         logger.error(f"=== 账单导入任务严重错误 ===")
         logger.error(f"任务ID: {error_details['task_id']}")
         logger.error(f"错误类型: {error_details['error_type']}")
@@ -156,23 +159,8 @@ def import_bill_task(self, user_id, alipay_password='', wechat_password=''):
         logger.error(f"时间戳: {error_details['timestamp']}")
         logger.error(f"完整堆栈追踪:\n{error_details['traceback']}")
         logger.error("=" * 50)
-        
-        # 返回更详细的错误信息给前端
-        error_response = {
-            'status': 'failed',
-            'message': str(e),
-            'error_type': str(exc_type.__name__),
-            'task_id': self.request.id,
-            'timestamp': error_details['timestamp']
-        }
-        
-        # 在生产环境中，可以选择性地返回详细错误信息
-        # 但在开发环境中返回完整信息便于调试
-        import os
-        if os.getenv('DEBUG', 'False').lower() == 'true':
-            error_response['debug_info'] = error_details
-        
-        return error_response
+
+        raise  # 必须重新抛出，让 Celery 处理
 
 # 邮件处理类
 class MailHandler:

@@ -15,7 +15,7 @@ export const useUserStore = defineStore('user', {
     // 登录接口
     async login(formData) {
       const res = await authAPI.login(formData)
-      this.setToken(res.data.data.token)
+      // this.setToken(res.data.data.token)
       return res
     },
     // 退出登录
