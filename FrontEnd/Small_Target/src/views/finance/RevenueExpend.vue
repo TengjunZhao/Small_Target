@@ -637,6 +637,7 @@ const activeTab = ref('expense-import');
 
 // 预算分类选项（包含ID和名称）
 const budgetCategories = ref([]);
+const budgetSubCategories = ref([]);
 
 // 家庭成员选项（包含ID和用户名）
 const familyMembers = ref([]);
@@ -780,11 +781,24 @@ const loadPendingExpenses = async (page = 1) => {
       pendingTotalPages.value = res.data.data.total_pages;
       pendingTotalCount.value = res.data.data.total;
 
-      // 设置预算分类选项（后端返回的是budget_categories）
-      budgetCategories.value = res.data.data.budget_categories || [];
       // 为每条记录初始化调整项目字段
       pendingExpenseList.value.forEach(item => {
-        item.adjusted_sub_category = '';
+        item.adjusted_sub_category = ''; // 初始化空值
+
+        // 等待 budgetCategories 加载完成后再匹配（关键：确保数据源存在）
+        if (budgetCategories.value.length === 0) return;
+
+        // 核心逻辑：根据 item.sub_category 匹配 budgetCategories 中的分类，取其 id 赋值
+        const matchedCategory = budgetCategories.value.find(
+          cate => cate.sub_category === item.sub_category // 按分类名称匹配
+        );
+
+        if (matchedCategory) {
+          item.adjusted_sub_category = matchedCategory.id; // 赋值正确的 id，控件自动选中
+          // console.log('Item', item.sub_category, '匹配到的分类ID:', matchedCategory.id);
+        } else {
+          console.log('Item', item.sub_category, '未找到匹配的分类');
+        }
       });
     } else {
       console.error('API返回错误状态:', res.data);
@@ -1232,12 +1246,10 @@ onMounted(async () => {
 
     // 加载家庭成员列表
     await loadFamilyMembers();
-
-    // 加载待确认支出明细
-    await loadPendingExpenses(1);
-
     // 初始化支出明细数据
     await searchExpense(1);
+    // 加载待确认支出明细
+    await loadPendingExpenses(1);
   } catch (error) {
     console.error('初始化失败:', error);
   }
