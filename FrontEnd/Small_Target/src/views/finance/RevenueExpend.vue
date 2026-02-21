@@ -291,6 +291,7 @@
                 <thead>
                   <tr>
                     <th>时间</th>
+                    <th>支出方式</th>
                     <th>金额(元)</th>
                     <th>收/支</th>
                     <th>商品</th>
@@ -305,6 +306,7 @@
                 <tbody>
                   <tr v-for="(item, index) in pendingExpenseList" :key="item.id">
                     <td>{{ item.time }}</td>
+                    <td>{{ item.expend_channel }}</td>
                     <td :style="{color: item.in_out === '支出' ? '#F56C6C' : '#67C23A'}">
                       {{ item.in_out === '支出' ? '-' + item.amount : item.amount }}
                     </td>
