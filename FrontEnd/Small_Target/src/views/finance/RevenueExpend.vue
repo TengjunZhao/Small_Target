@@ -562,7 +562,7 @@
               </div>
             </div>
           </div>
-          <div class="panel-card mt-20" v-if="pendingExpenseList.length > 0">
+          <div class="panel-card mt-20" v-if="billList.length > 0">
             <div class="panel-title">收支明细</div>
             <div class="table-container">
               <table class="data-table">
