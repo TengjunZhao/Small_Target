@@ -626,7 +626,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import * as echarts from 'echarts';
 import { financeAPI } from '@/utils/requests.js';
 import { ElMessage } from 'element-plus';
@@ -1123,6 +1123,7 @@ const searchExpense = async (page = 1) => {
     });
 
     if (res.data.code === 200) {
+      await nextTick();
       billList.value = res.data.data.records;
       expenseCurrentPage.value = res.data.data.page;
       expenseTotalPages.value = res.data.data.total_pages;
@@ -1248,10 +1249,10 @@ onMounted(async () => {
 
     // 加载家庭成员列表
     await loadFamilyMembers();
-    // 初始化支出明细数据
-    await searchExpense(1);
     // 加载待确认支出明细
     await loadPendingExpenses(1);
+    // 初始化支出明细数据
+    await searchExpense(1);
   } catch (error) {
     console.error('初始化失败:', error);
   }
