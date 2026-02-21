@@ -267,13 +267,6 @@
               <!-- 操作按钮 -->
               <div class="progress-actions" v-if="importTaskStatus.status === 'completed' || importTaskStatus.status === 'failed'">
                 <button
-                  class="btn primary-btn"
-                  @click="resetImportForm"
-                  v-if="importTaskStatus.status === 'completed'"
-                >
-                  继续导入
-                </button>
-                <button
                   class="btn default-btn"
                   @click="stopPolling"
                   v-if="importTaskStatus.status === 'failed'"

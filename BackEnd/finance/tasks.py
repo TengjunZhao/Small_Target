@@ -119,8 +119,9 @@ def import_bill_task(self, user_id, alipay_password='', wechat_password=''):
         
         # 调用数据合并逻辑
         logger.info("开始调用数据合并逻辑")
+        merge_result = None
         try:
-            merge_db_data(family, user)
+            merge_result = merge_db_data(family, user)
             logger.info("数据合并逻辑执行完成")
         except Exception as merge_error:
             logger.error(f"数据合并过程中发生错误: {str(merge_error)}")
@@ -128,10 +129,22 @@ def import_bill_task(self, user_id, alipay_password='', wechat_password=''):
         
         final_result = {
             'processed_files': len(file_list),
-            'results': results
+            'results': results,
+            'merge_result': merge_result  # 包含合并结果信息
         }
         
-        self.update_state(state='SUCCESS', meta={'progress': 100, 'message': '账单导入成功完成', 'result': final_result})
+        # 检查是否有合并失败记录
+        merge_failed_count = 0
+        if final_result.get('merge_result') and final_result['merge_result'].get('failed_count'):
+            merge_failed_count = final_result['merge_result']['failed_count']
+        
+        # 更新任务状态，根据失败情况设置不同的消息
+        if merge_failed_count > 0:
+            message = f'账单导入完成，但有{merge_failed_count}条记录导入数据库失败'
+        else:
+            message = '账单导入成功完成'
+        
+        self.update_state(state='SUCCESS', meta={'progress': 100, 'message': message, 'result': final_result})
         
         logger.info(f"账单导入任务完成: {self.request.id}")
         return {'status': 'completed', 'result': final_result}
@@ -441,7 +454,8 @@ def merge_db_data(family, user):
         sync_path = os.path.join(os.path.expanduser("~"), 'Downloads')
         ali_file_path = os.path.join(sync_path, 'ali.xlsx')
         we_file_path = os.path.join(sync_path, 'we.xlsx')
-        logger.info(f"Family",family, "User", user)
+        logger.info(f"Family: {family}, User: {user}")
+        
         # 处理支付宝数据
         if os.path.exists(ali_file_path):
             logger.info(f"开始导入支付宝数据，文件路径为：{ali_file_path}")
@@ -453,21 +467,25 @@ def merge_db_data(family, user):
             logger.info(f"开始导入微信数据，文件路径为：{we_file_path}")
             import_wechat_data(we_file_path, family, user)
             logger.info("微信数据导入完成")
-        
-        # 合并数据到总表
-        logger.info("开始合并数据到总表")
-        merge_to_main_table(family,  user)
-        logger.info("数据合并完成")
-        
-        # 清理临时文件
+
         try:
-            if os.path.exists(ali_file_path):
-                os.remove(ali_file_path)
-            if os.path.exists(we_file_path):
-                os.remove(we_file_path)
-        except OSError as e:
-            logger.warning(f"清理临时文件失败: {e}")
-            
+            # 合并数据到总表
+            logger.info("开始合并数据到总表")
+            merge_result = merge_to_main_table(family, user)
+            # logger.info(f"数据合并完成: 成功{merge_result['success_count']}条，失败{merge_result['failed_count']}条")
+            # 返回合并结果，供上层函数使用
+            return merge_result
+        finally:
+            try:
+                 # 清理临时文件
+                if os.path.exists(ali_file_path):
+                    os.remove(ali_file_path)
+                if os.path.exists(we_file_path):
+                    os.remove(we_file_path)
+                logger.info(f'临时文件清理完成，文件路径: {ali_file_path}, {we_file_path}')
+            except OSError as e:
+                logger.warning(f"清理临时文件失败: {e}")
+
     except Exception as e:
         logger.error(f"数据合并失败: {str(e)}")
         raise
@@ -475,27 +493,19 @@ def merge_db_data(family, user):
 def categorize_expense(commodity):
     """根据商品名称自动分类支出"""
     if '蚂蚁森林' in commodity:
-        return '环保公益'
-    elif '叮咚买菜' in commodity or '超市' in commodity or '生鲜' in commodity:
-        return '食品酒水'
+        return '2200'
+    elif '叮咚买菜' in commodity:
+        return '2000'
     elif '手机充值' in commodity:
-        return '通讯物流'
+        return '1600'
     elif '停车' in commodity:
-        return '汽车交通'
+        return '1100'
     elif '外卖' in commodity:
-        return '食品酒水'
-    elif '地铁' in commodity or '公交' in commodity or '打车' in commodity:
-        return '汽车交通'
-    elif '电费' in commodity or '水费' in commodity or '燃气' in commodity:
-        return '住房缴费'
-    elif '房租' in commodity:
-        return '住房缴费'
-    elif '电影' in commodity or '娱乐' in commodity:
-        return '休闲娱乐'
-    elif '购物' in commodity or '商城' in commodity:
-        return '购物消费'
+        return '1000'
+    elif '地铁' in commodity or '公交' in commodity:
+        return '2401'
     else:
-        return '其他支出'
+        return '0'
 
 def import_alipay_data(file_path, family, user):
     """导入支付宝数据"""
@@ -530,15 +540,19 @@ def import_alipay_data(file_path, family, user):
                 trade_category = str(row.get('收/支', ''))[:50]
                 
                 # 获取或创建预算分类
-                budget_category = None
-                category_name = categorize_expense(commodity)
-                if category_name:
-                    budget_category, _ = BudgetCategory.objects.get_or_create(
-                        family=family,
-                        main_category=category_name,
-                        defaults={'sub_category': '默认', 'is_fixed': False}
-                    )
-                
+                category_id = categorize_expense(commodity)
+                if category_id and category_id.isdigit():
+                    # 根据ID查找或创建
+                    try:
+                        budget_category = BudgetCategory.objects.get(family=family, id=int(category_id))
+                    except BudgetCategory.DoesNotExist:
+                        # 创建新的分类
+                        budget_category, _ = BudgetCategory.objects.get_or_create(
+                            family=family,
+                            main_category=f'自动分类-{category_id}',
+                            defaults={'sub_category': '默认', 'is_fixed': False}
+                        )
+
                 # 创建或更新支付宝账单记录
                 ExpendAlipay.objects.update_or_create(
                     transaction_id=transaction_id,
@@ -601,14 +615,19 @@ def import_wechat_data(file_path, family, user):
                 
                 # 获取或创建预算分类
                 budget_category = None
-                category_name = categorize_expense(commodity)
-                if category_name:
-                    budget_category, _ = BudgetCategory.objects.get_or_create(
-                        family=family,
-                        main_category=category_name,
-                        defaults={'sub_category': '默认', 'is_fixed': False}
-                    )
-                
+                category_id = categorize_expense(commodity)
+                if category_id and category_id.isdigit():
+                    # 根据ID查找或创建
+                    try:
+                        budget_category = BudgetCategory.objects.get(family=family, id=int(category_id))
+                    except BudgetCategory.DoesNotExist:
+                        # 创建新的分类
+                        budget_category, _ = BudgetCategory.objects.get_or_create(
+                            family=family,
+                            main_category=f'自动分类-{category_id}',
+                            defaults={'sub_category': '默认', 'is_fixed': False}
+                        )
+
                 # 创建或更新微信账单记录
                 ExpendWechat.objects.update_or_create(
                     transaction_id=transaction_id,
@@ -638,78 +657,98 @@ def import_wechat_data(file_path, family, user):
         logger.error(f"导入微信数据失败: {str(e)}")
         raise
 
+
 def merge_to_main_table(family, user):
     """合并到主收支表"""
     try:
         from .models import ExpendAlipay, ExpendWechat, ExpendMerged
         from django.contrib.auth.models import User
-        
-        # 获取支付宝数据
-        alipay_records = ExpendAlipay.objects.filter(family=family)
+
+        # 收集失败记录
+        failed_records = []
+        success_count = 0
+
+        # 获取支付宝数据 - 只获取当前用户的记录
+        alipay_records = ExpendAlipay.objects.filter(family=family, user=user)
         alipay_list = []
         for record in alipay_records:
-            alipay_list.append([
-                record.transaction_id,
-                '支付宝',
-                record.budget.id if record.budget else None,
-                record.commodity,
-                record.in_out,
-                record.person,
-                record.price,
-                record.status,
-                record.exchange,
-                record.trade_time,
-                record.belonging,
-                family.id,
-                user.id,
-            ])
-        
-        # 获取微信数据
-        wechat_records = ExpendWechat.objects.filter(family=family)
+            alipay_list.append({
+                'transaction_id': record.transaction_id,
+                'channel': '支付宝',
+                'budget_id': record.budget.id if record.budget else None,
+                'commodity': record.commodity,
+                'in_out': record.in_out,
+                'person': record.person,
+                'price': record.price,
+                'status': record.status,
+                'trade_time': record.trade_time,
+                'belonging': record.belonging,
+                'family_id': family.id,
+                'user_id': user.id
+            })
+
+        # 获取微信数据 - 只获取当前用户的记录
+        wechat_records = ExpendWechat.objects.filter(family=family, user=user)
         wechat_list = []
         for record in wechat_records:
-            wechat_list.append([
-                record.transaction_id,
-                '微信',
-                record.budget.id if record.budget else None,
-                record.commodity,
-                record.in_out,
-                record.person,
-                record.price,
-                record.status,
-                record.trade_time,
-                record.belonging,
-                family.id,
-                user.id,
-            ])
-        
+            wechat_list.append({
+                'transaction_id': record.transaction_id,
+                'channel': '微信',
+                'budget_id': record.budget.id if record.budget else None,
+                'commodity': record.commodity,
+                'in_out': record.in_out,
+                'person': record.person,
+                'price': record.price,
+                'status': record.status,
+                'trade_time': record.trade_time,
+                'belonging': record.belonging,
+                'family_id': family.id,
+                'user_id': user.id
+            })
+
         # 合并数据
         merged_data = alipay_list + wechat_list
-        
-        # 写入合并表
+
+        # 写入合并表 - 使用字典方式
         for data in merged_data:
             try:
                 ExpendMerged.objects.update_or_create(
-                    transaction_id=data[0],
+                    transaction_id=data['transaction_id'],
                     defaults={
-                        'expend_channel': data[1].lower(),
-                        # 'budget_id': data[2],
-                        'commodity': data[3][:100],
-                        'in_out': data[4][:5],
-                        'person': data[5][:100],
-                        'price': data[6],
-                        'status': data[7][:255],
-                        'trade_time': data[8],
-                        'user': data[10],
-                        'family': data[11],
+                        'expend_channel': data['channel'].lower(),
+                        'budget_id': data['budget_id'],
+                        'commodity': data['commodity'][:100] if data['commodity'] is not None else "",
+                        'in_out': data['in_out'][:5] if data['in_out'] is not None else "",
+                        'person': data['person'][:100] if data['person'] is not None else "",
+                        'price': data['price'],
+                        'status': data['status'][:255] if data['status'] is not None else "",
+                        'trade_time': data['trade_time'],
+                        'belonging': data['belonging'],
+                        'family_id': data['family_id'],
+                        'user_id': data['user_id']
                     }
                 )
+                success_count += 1
             except Exception as e:
+                error_info = {
+                    'transaction_id': data['transaction_id'],
+                    'channel': data['channel'],
+                    'error': str(e),
+                    'data': str(data)
+                }
+                failed_records.append(error_info)
                 logger.warning(f"合并记录失败: {str(e)}, 数据: {data}")
                 continue
-                
-        logger.info(f"数据合并完成，共处理{len(merged_data)}条记录")
-        
+
+        logger.info(f"数据合并完成，成功{success_count}条，失败{len(failed_records)}条")
+
+        # 返回结果信息
+        return {
+            'success_count': success_count,
+            'failed_count': len(failed_records),
+            'failed_records': failed_records
+        }
+
     except Exception as e:
         logger.error(f"合并到主表失败: {str(e)}")
         raise
