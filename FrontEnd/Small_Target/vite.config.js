@@ -16,7 +16,6 @@ export default defineConfig({
           echarts: ['echarts'],
           elementPlus: ['element-plus'],
           pinia: ['pinia'],
-          tailwindcss : ['tailwindcss'],
           frappegantt: ['frappe-gantt'],
         }
       }
