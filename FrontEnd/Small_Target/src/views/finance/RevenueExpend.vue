@@ -515,15 +515,15 @@
               <div class="control-group">
                 <label class="control-label">分析模式：</label>
                 <div class="mode-options">
-                  <button 
-                    class="mode-btn" 
+                  <button
+                    class="mode-btn"
                     :class="{ active: analysisMode === 'family' }"
                     @click="analysisMode = 'family'"
                   >
                     家庭模式
                   </button>
-                  <button 
-                    class="mode-btn" 
+                  <button
+                    class="mode-btn"
                     :class="{ active: analysisMode === 'personal' }"
                     @click="analysisMode = 'personal'"
                   >
@@ -531,7 +531,7 @@
                   </button>
                 </div>
               </div>
-              
+
               <div class="control-group" v-if="analysisMode === 'personal'">
                 <label class="control-label">选择用户：</label>
                 <select class="form-select" v-model="analysisUserId">
@@ -546,7 +546,7 @@
                   </option>
                 </select>
               </div>
-              
+
               <div class="control-group">
                 <label class="control-label">时间范围：</label>
                 <div class="date-range">
@@ -563,13 +563,13 @@
                   >
                 </div>
               </div>
-              
+
               <div class="control-group">
                 <button class="btn primary-btn" @click="loadAnalysisData">更新分析</button>
               </div>
             </div>
           </div>
-          
+
           <!-- 分类汇总卡片 -->
           <div class="card-row">
             <div class="stat-card">
@@ -789,29 +789,29 @@ const loadAnalysisData = async () => {
       ElMessage.warning('请选择要分析的用户');
       return;
     }
-    
+
     if (!analysisStartDate.value || !analysisEndDate.value) {
       ElMessage.warning('请选择完整的时间范围');
       return;
     }
-    
+
     // 构造请求参数
     const params = {
       start_date: analysisStartDate.value,
       end_date: analysisEndDate.value,
       mode: analysisMode.value
     };
-    
+
     if (analysisMode.value === 'personal') {
       params.user_id = analysisUserId.value;
     }
-    
+
     // 调用API获取分析数据
     const res = await financeAPI.getAnalysisData(params);
-    
+
     if (res.data.code === 200) {
       const data = res.data.data;
-      
+
       // 更新分析数据
       analysisData.value = {
         totalIncome: data.total_income || 0,
@@ -822,10 +822,10 @@ const loadAnalysisData = async () => {
         incomeByCategory: data.income_by_category || [],
         monthlyTrend: data.monthly_trend || []
       };
-      
+
       // 更新图表
       updateCharts();
-      
+
       ElMessage.success('数据分析更新成功');
     } else {
       ElMessage.error(res.data.msg || '获取分析数据失败');
@@ -844,7 +844,7 @@ const updateCharts = () => {
     const months = trendData.map(item => item.month);
     const incomes = trendData.map(item => item.income);
     const expenses = trendData.map(item => item.expense);
-    
+
     trendChart.setOption({
       xAxis: { data: months },
       series: [
@@ -853,26 +853,26 @@ const updateCharts = () => {
       ]
     });
   }
-  
+
   // 更新支出分类饼图
   if (expenseCategoryChart) {
     const expenseData = analysisData.value.expenseByCategory.map(item => ({
       value: item.amount,
       name: item.category
     }));
-    
+
     expenseCategoryChart.setOption({
       series: [{ data: expenseData }]
     });
   }
-  
+
   // 更新收入分类饼图
   if (incomeCategoryChart) {
     const incomeData = analysisData.value.incomeByCategory.map(item => ({
       value: item.amount,
       name: item.category
     }));
-    
+
     incomeCategoryChart.setOption({
       series: [{ data: incomeData }]
     });
@@ -1366,39 +1366,6 @@ const resetSearchForm = () => {
   };
 };
 
-
-
-// 辅助文本转换
-const getIncomeCategoryText = (category) => {
-  const map = {
-    salary: '工资收入',
-    bonus: '奖金补贴',
-    investment: '投资收益',
-    part_time: '兼职收入',
-    other: '其他收入'
-  };
-  return map[category] || category;
-};
-const getExpenseCategoryText = (category) => {
-  const map = {
-    food: '餐饮美食',
-    shopping: '购物消费',
-    transport: '交通出行',
-    housing: '住房缴费',
-    entertainment: '休闲娱乐',
-    other: '其他支出'
-  };
-  return map[category] || category;
-};
-const getUserText = (user) => {
-  const map = {
-    user1: '户主',
-    user2: '配偶',
-    user3: '其他成员'
-  };
-  return map[user] || user;
-};
-
 // 支出明细查询
 const searchExpense = async (page = 1) => {
   // 先验证日期范围
@@ -1448,21 +1415,28 @@ const initCharts = () => {
     grid: { left: '10%', right: '5%', bottom: '10%', top: '15%', containLabel: true },
     xAxis: {
       type: 'category',
-      data: ['1月', '2月', '3月', '4月', '5月', '6月']
+      data: []
     },
     yAxis: { type: 'value', unit: '元', min: 0 },
     series: [
       {
         name: '收入',
         type: 'bar',
-        data: [16500, 17200, 16800, 17500, 17850.5, 0],
+        data: [],
+        itemStyle: { color: '#67C23A' },
+        barWidth: '40%'
+      },
+      {
+        name: '收入',
+        type: 'bar',
+        data: [],
         itemStyle: { color: '#67C23A' },
         barWidth: '40%'
       },
       {
         name: '支出',
         type: 'bar',
-        data: [8900, 9200, 8700, 8800, 8560.2, 0],
+        data: [],
         itemStyle: { color: '#F56C6C' },
         barWidth: '40%'
       }
@@ -1479,14 +1453,7 @@ const initCharts = () => {
       type: 'pie',
       radius: ['40%', '70%'],
       center: ['40%', '50%'],
-      data: [
-        { value: 2560, name: '餐饮美食' },
-        { value: 1890, name: '购物消费' },
-        { value: 650, name: '交通出行' },
-        { value: 2800, name: '住房缴费' },
-        { value: 450.2, name: '休闲娱乐' },
-        { value: 210, name: '其他支出' }
-      ],
+      data: [],
       itemStyle: {
         color: function(params) {
           const colorList = ['#F56C6C', '#E6A23C', '#409EFF', '#67C23A', '#909399', '#C0C4CC'];
@@ -1506,13 +1473,7 @@ const initCharts = () => {
       type: 'pie',
       radius: ['40%', '70%'],
       center: ['40%', '50%'],
-      data: [
-        { value: 15000, name: '工资收入' },
-        { value: 2000, name: '奖金补贴' },
-        { value: 850.5, name: '投资收益' },
-        { value: 0, name: '兼职收入' },
-        { value: 0, name: '其他收入' }
-      ],
+      data: [],
       itemStyle: {
         color: function(params) {
           const colorList = ['#67C23A', '#409EFF', '#E6A23C', '#909399', '#C0C4CC'];
@@ -1547,25 +1508,40 @@ onMounted(async () => {
 
     // 加载基础数据
     await loadFamilyMembers();
-    await loadIncomeTypes();
-    await loadRecentIncomes();
-
-    // 加载待确认支出明细
     await loadPendingExpenses(1);
-    // 初始化支出明细数据
-    await searchExpense(1);
-    
-    // 初始化分析数据
-    await loadAnalysisData();
+
+
+    // 初始进入分析页时初始化图表
+    watch(activeTab, async (newVal) => {
+      switch (newVal){
+        case 'expense-import':
+          await loadPendingExpenses(1);
+          break;
+        case 'income-input':
+          await loadIncomeTypes();
+          await loadRecentIncomes();
+          break;
+        case 'data-analysis':
+          [trendChart, expenseCategoryChart, incomeCategoryChart].forEach(chart => {
+            if (chart) {
+              chart.dispose();
+            }
+          });
+          await nextTick();
+          initCharts();
+          // 初始化分析数据
+          await loadAnalysisData();
+          break;
+        case 'expense-detail':
+          // 初始化支出明细数据
+          await searchExpense(1);
+          break;
+      }
+      handleResize();
+      window.addEventListener('resize', handleResize);
+    })
   } catch (error) {
     console.error('初始化失败:', error);
-  }
-
-  handleResize();
-  window.addEventListener('resize', handleResize);
-  // 初始进入分析页时初始化图表
-  if (activeTab.value === 'data-analysis') {
-    initCharts();
   }
 });
 
