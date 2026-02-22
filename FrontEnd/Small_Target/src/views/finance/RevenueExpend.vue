@@ -862,7 +862,7 @@ const updateCharts = () => {
     }));
 
     expenseCategoryChart.setOption({
-      series: [{ data: expenseData }]
+      series: [createPieSeriesConfig('支出占比', expenseData)]
     });
   }
 
@@ -874,7 +874,7 @@ const updateCharts = () => {
     }));
 
     incomeCategoryChart.setOption({
-      series: [{ data: incomeData }]
+      series: [createPieSeriesConfig('收入占比', incomeData)]
     });
   }
 };
@@ -952,6 +952,54 @@ const analysisData = ref({
 let trendChart = null;
 let expenseCategoryChart = null;
 let incomeCategoryChart = null;
+
+// 颜色生成器 - 自动生成不重复的颜色
+const generateColors = (count) => {
+  const colors = [];
+  const baseColors = [
+    '#409EFF', '#67C23A', '#E6A23C', '#F56C6C', 
+    '#909399', '#C0C4CC', '#8cc5ff', '#a4da89',
+    '#eebe77', '#f89898', '#c8c9cc', '#e4e7ed'
+  ];
+  
+  // 如果需要的颜色数量少于基础颜色数量，直接返回对应数量
+  if (count <= baseColors.length) {
+    return baseColors.slice(0, count);
+  }
+  
+  // 如果需要更多颜色，则基于HSL生成
+  for (let i = 0; i < count; i++) {
+    if (i < baseColors.length) {
+      colors.push(baseColors[i]);
+    } else {
+      // 使用HSL生成新颜色，保持良好的视觉效果
+      const hue = (i * 137.508) % 360; // 黄金角度分布
+      const saturation = 70 + Math.sin(i) * 10;
+      const lightness = 50 + Math.cos(i) * 10;
+      colors.push(`hsl(${hue}, ${saturation}%, ${lightness}%)`);
+    }
+  }
+  
+  return colors;
+};
+
+// 创建带有自动颜色的饼图系列配置
+const createPieSeriesConfig = (name, data, colors = null) => {
+  const actualColors = colors || generateColors(data.length);
+  
+  return {
+    name: name,
+    type: 'pie',
+    radius: ['40%', '70%'],
+    center: ['40%', '50%'],
+    data: data,
+    itemStyle: {
+      color: function(params) {
+        return actualColors[params.dataIndex % actualColors.length];
+      }
+    }
+  };
+};
 
 // 侧边栏切换
 const toggleSidebar = () => {
@@ -1456,8 +1504,10 @@ const initCharts = () => {
       data: [],
       itemStyle: {
         color: function(params) {
-          const colorList = ['#F56C6C', '#E6A23C', '#409EFF', '#67C23A', '#909399', '#C0C4CC'];
-          return colorList[params.dataIndex];
+          // 动态生成颜色，基于数据索引
+          const dataLength = params.seriesData ? params.seriesData.length : 6;
+          const colors = generateColors(dataLength);
+          return colors[params.dataIndex % colors.length];
         }
       }
     }]
@@ -1476,8 +1526,10 @@ const initCharts = () => {
       data: [],
       itemStyle: {
         color: function(params) {
-          const colorList = ['#67C23A', '#409EFF', '#E6A23C', '#909399', '#C0C4CC'];
-          return colorList[params.dataIndex];
+          // 动态生成颜色，基于数据索引
+          const dataLength = params.seriesData ? params.seriesData.length : 5;
+          const colors = generateColors(dataLength);
+          return colors[params.dataIndex % colors.length];
         }
       }
     }]
