@@ -957,16 +957,16 @@ let incomeCategoryChart = null;
 const generateColors = (count) => {
   const colors = [];
   const baseColors = [
-    '#409EFF', '#67C23A', '#E6A23C', '#F56C6C', 
+    '#409EFF', '#67C23A', '#E6A23C', '#F56C6C',
     '#909399', '#C0C4CC', '#8cc5ff', '#a4da89',
     '#eebe77', '#f89898', '#c8c9cc', '#e4e7ed'
   ];
-  
+
   // 如果需要的颜色数量少于基础颜色数量，直接返回对应数量
   if (count <= baseColors.length) {
     return baseColors.slice(0, count);
   }
-  
+
   // 如果需要更多颜色，则基于HSL生成
   for (let i = 0; i < count; i++) {
     if (i < baseColors.length) {
@@ -979,14 +979,14 @@ const generateColors = (count) => {
       colors.push(`hsl(${hue}, ${saturation}%, ${lightness}%)`);
     }
   }
-  
+
   return colors;
 };
 
 // 创建带有自动颜色的饼图系列配置
 const createPieSeriesConfig = (name, data, colors = null) => {
   const actualColors = colors || generateColors(data.length);
-  
+
   return {
     name: name,
     type: 'pie',
@@ -1467,13 +1467,6 @@ const initCharts = () => {
     },
     yAxis: { type: 'value', unit: '元', min: 0 },
     series: [
-      {
-        name: '收入',
-        type: 'bar',
-        data: [],
-        itemStyle: { color: '#67C23A' },
-        barWidth: '40%'
-      },
       {
         name: '收入',
         type: 'bar',
