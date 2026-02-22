@@ -570,6 +570,12 @@
             </div>
           </div>
 
+          <!-- 加载状态提示 -->
+          <div v-if="isAnalysisLoading" class="loading-overlay">
+            <div class="loading-spinner"></div>
+            <p>正在加载分析数据...</p>
+          </div>
+
           <!-- 分类汇总卡片 -->
           <div class="card-row">
             <div class="stat-card">
@@ -783,7 +789,9 @@ const searchForm = ref({
 
 // 加载分析数据
 const loadAnalysisData = async () => {
+  if (isAnalysisLoading.value) return; // 防止重复加载
   try {
+    isAnalysisLoading.value = true;
     // 验证必要参数
     if (analysisMode.value === 'personal' && !analysisUserId.value) {
       ElMessage.warning('请选择要分析的用户');
@@ -833,6 +841,8 @@ const loadAnalysisData = async () => {
   } catch (error) {
     console.error('加载分析数据失败:', error);
     ElMessage.error('加载分析数据失败，请稍后重试');
+  } finally {
+    isAnalysisLoading.value = false;
   }
 };
 
@@ -936,6 +946,9 @@ const analysisMode = ref('family'); // 'family' 或 'personal'
 const analysisUserId = ref(''); // 个人模式下选择的用户ID
 const analysisStartDate = ref(getFirstDayOfMonth()); // 分析开始日期
 const analysisEndDate = ref(new Date().toISOString().split('T')[0]); // 分析结束日期
+
+// 分析数据加载状态
+const isAnalysisLoading = ref(false);
 
 // 分析数据
 const analysisData = ref({
@@ -1555,7 +1568,6 @@ onMounted(async () => {
     await loadFamilyMembers();
     await loadPendingExpenses(1);
 
-
     // 初始进入分析页时初始化图表
     watch(activeTab, async (newVal) => {
       switch (newVal){
@@ -1567,15 +1579,20 @@ onMounted(async () => {
           await loadRecentIncomes();
           break;
         case 'data-analysis':
+          // 先清理现有图表
           [trendChart, expenseCategoryChart, incomeCategoryChart].forEach(chart => {
             if (chart) {
               chart.dispose();
             }
           });
+          // 等待DOM更新
           await nextTick();
+          // 初始化图表
           initCharts();
-          // 初始化分析数据
-          await loadAnalysisData();
+          // 延迟一小段时间确保图表完全初始化后再加载数据
+          setTimeout(async () => {
+            await loadAnalysisData();
+          }, 100);
           break;
         case 'expense-detail':
           // 初始化支出明细数据
@@ -1584,7 +1601,7 @@ onMounted(async () => {
       }
       handleResize();
       window.addEventListener('resize', handleResize);
-    })
+    }, { immediate: true })
   } catch (error) {
     console.error('初始化失败:', error);
   }
@@ -1602,6 +1619,42 @@ onUnmounted(() => {
 
 <style scoped>
 /* 复用原有基础样式 */
+
+/* 加载状态样式 */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(255, 255, 255, 0.8);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #409EFF;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 15px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-overlay p {
+  color: #666;
+  font-size: 16px;
+  margin: 0;
+}
 .app-container {
   width: 100vw;
   height: 100vh;
