@@ -945,3 +945,144 @@ class BillListView(APIView):
                 'msg': f'查询失败：{str(e)}',
                 'data': {}
             })
+
+# 财务分析API视图
+class FinanceAnalysisView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        """获取财务分析数据"""
+        try:
+            user = request.user
+            try:
+                user_profile = UserProfile.objects.get(user=user)
+                family = user_profile.family
+            except UserProfile.DoesNotExist:
+                return Response({
+                    'code': 400,
+                    'msg': '用户未配置家庭信息',
+                    'data': {}
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 获取查询参数
+            start_date = request.GET.get('start_date', '')
+            end_date = request.GET.get('end_date', '')
+            mode = request.GET.get('mode', 'family')  # 'family' 或 'personal'
+            user_id = request.GET.get('user_id', '')
+            
+            # 验证必需参数
+            if not start_date or not end_date:
+                return Response({
+                    'code': 400,
+                    'msg': '请提供开始和结束日期',
+                    'data': {}
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 解析日期
+            try:
+                start_datetime = dt.strptime(start_date, '%Y-%m-%d')
+                end_datetime = dt.strptime(end_date, '%Y-%m-%d')
+                end_datetime = end_datetime.replace(hour=23, minute=59, second=59)
+            except ValueError:
+                return Response({
+                    'code': 400,
+                    'msg': '日期格式错误，请使用YYYY-MM-DD格式',
+                    'data': {}
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 构建基础查询条件
+            income_filter = {'family': family, 'payday__range': [start_datetime, end_datetime]}
+            expense_filter = {'family': family, 'trade_time__range': [start_datetime, end_datetime]}
+            
+            # 根据模式添加用户筛选
+            if mode == 'personal' and user_id:
+                try:
+                    target_user = User.objects.get(id=user_id)
+                    income_filter['user'] = target_user
+                    expense_filter['user'] = target_user
+                except User.DoesNotExist:
+                    return Response({
+                        'code': 400,
+                        'msg': '指定的用户不存在',
+                        'data': {}
+                    }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 查询收入数据
+            incomes = Income.objects.filter(**income_filter)
+            total_income = sum(float(income.income) for income in incomes)
+            
+            # 查询支出数据
+            expenses = ExpendMerged.objects.filter(**expense_filter)
+            total_expense = sum(float(expense.price) for expense in expenses if expense.in_out == '支出')
+            
+            # 计算结余和比例
+            balance = total_income - total_expense
+            income_ratio = (total_expense / total_income * 100) if total_income > 0 else 0
+            
+            # 支出分类统计
+            expense_by_category = {}
+            for expense in expenses:
+                if expense.in_out == '支出':
+                    category = expense.budget.sub_category if expense.budget else '未分类'
+                    expense_by_category[category] = expense_by_category.get(category, 0) + float(expense.price)
+            
+            # 收入分类统计
+            income_by_category = {}
+            for income in incomes:
+                category = f"{income.income_type.income_maintype}-{income.income_type.income_subtype}" if income.income_type else '未分类'
+                income_by_category[category] = income_by_category.get(category, 0) + float(income.income)
+            
+            # 月度趋势数据（简化版：按月统计）
+            monthly_trend = []
+            current_month = start_datetime.replace(day=1)
+            while current_month <= end_datetime:
+                next_month = (current_month.replace(day=28) + datetime.timedelta(days=4)).replace(day=1)
+                month_end = next_month - datetime.timedelta(days=1)
+                
+                # 统计该月的收入和支出
+                month_income_filter = income_filter.copy()
+                month_income_filter['payday__range'] = [current_month, min(month_end, end_datetime)]
+                month_expense_filter = expense_filter.copy()
+                month_expense_filter['trade_time__range'] = [current_month, min(month_end, end_datetime)]
+                
+                month_income = sum(float(income.income) for income in Income.objects.filter(**month_income_filter))
+                month_expense = sum(float(expense.price) for expense in ExpendMerged.objects.filter(**month_expense_filter) if expense.in_out == '支出')
+                
+                monthly_trend.append({
+                    'month': current_month.strftime('%Y-%m'),
+                    'income': month_income,
+                    'expense': month_expense
+                })
+                
+                current_month = next_month
+            
+            # 构造返回数据
+            data = {
+                'total_income': round(total_income, 2),
+                'total_expense': round(total_expense, 2),
+                'balance': round(balance, 2),
+                'income_ratio': round(income_ratio, 1),
+                'expense_by_category': [
+                    {'category': category, 'amount': round(amount, 2)}
+                    for category, amount in expense_by_category.items()
+                ],
+                'income_by_category': [
+                    {'category': category, 'amount': round(amount, 2)}
+                    for category, amount in income_by_category.items()
+                ],
+                'monthly_trend': monthly_trend
+            }
+            
+            return Response({
+                'code': 200,
+                'msg': '获取分析数据成功',
+                'data': data
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"获取财务分析数据失败: {str(e)}")
+            return Response({
+                'code': 500,
+                'msg': f'获取分析数据失败: {str(e)}',
+                'data': {}
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -508,44 +508,106 @@
 
         <!-- 收支分析面板 -->
         <div class="panel" v-if="activeTab === 'data-analysis'">
+          <!-- 控制选项 -->
+          <div class="panel-card mb-20">
+            <div class="panel-title">分析设置</div>
+            <div class="analysis-controls">
+              <div class="control-group">
+                <label class="control-label">分析模式：</label>
+                <div class="mode-options">
+                  <button 
+                    class="mode-btn" 
+                    :class="{ active: analysisMode === 'family' }"
+                    @click="analysisMode = 'family'"
+                  >
+                    家庭模式
+                  </button>
+                  <button 
+                    class="mode-btn" 
+                    :class="{ active: analysisMode === 'personal' }"
+                    @click="analysisMode = 'personal'"
+                  >
+                    个人模式
+                  </button>
+                </div>
+              </div>
+              
+              <div class="control-group" v-if="analysisMode === 'personal'">
+                <label class="control-label">选择用户：</label>
+                <select class="form-select" v-model="analysisUserId">
+                  <option value="">请选择用户</option>
+                  <option
+                    v-for="member in familyMembers"
+                    :key="member.user_id"
+                    :value="member.user_id"
+                  >
+                    {{ member.username }}
+                    <span v-if="member.is_admin">(管理员)</span>
+                  </option>
+                </select>
+              </div>
+              
+              <div class="control-group">
+                <label class="control-label">时间范围：</label>
+                <div class="date-range">
+                  <input
+                    type="date"
+                    class="form-input small-input"
+                    v-model="analysisStartDate"
+                  >
+                  <span class="range-separator">至</span>
+                  <input
+                    type="date"
+                    class="form-input small-input"
+                    v-model="analysisEndDate"
+                  >
+                </div>
+              </div>
+              
+              <div class="control-group">
+                <button class="btn primary-btn" @click="loadAnalysisData">更新分析</button>
+              </div>
+            </div>
+          </div>
+          
           <!-- 分类汇总卡片 -->
           <div class="card-row">
             <div class="stat-card">
-              <div class="card-title">本月总收入</div>
-              <div class="card-value text-green">¥ {{ monthTotalIncome }}</div>
-              <div class="card-trend">较上月 +5.2%</div>
+              <div class="card-title">总收入</div>
+              <div class="card-value text-green">¥ {{ analysisData.totalIncome.toFixed(2) }}</div>
+              <div class="card-trend">选定时间段</div>
             </div>
             <div class="stat-card">
-              <div class="card-title">本月总支出</div>
-              <div class="card-value text-red">¥ {{ monthTotalExpense }}</div>
-              <div class="card-trend">较上月 -2.8%</div>
+              <div class="card-title">总支出</div>
+              <div class="card-value text-red">¥ {{ analysisData.totalExpense.toFixed(2) }}</div>
+              <div class="card-trend">选定时间段</div>
             </div>
             <div class="stat-card">
-              <div class="card-title">本月收支结余</div>
-              <div class="card-value">¥ {{ monthBalance }}</div>
-              <div class="card-trend">目标 +5000元</div>
+              <div class="card-title">收支结余</div>
+              <div class="card-value" :class="analysisData.balance >= 0 ? 'text-green' : 'text-red'">¥ {{ analysisData.balance.toFixed(2) }}</div>
+              <div class="card-trend">选定时间段</div>
             </div>
             <div class="stat-card">
               <div class="card-title">支出占收入比</div>
-              <div class="card-value">{{ expenseIncomeRatio }}%</div>
-              <div class="card-trend">目标 ≤70%</div>
+              <div class="card-value">{{ analysisData.incomeRatio.toFixed(1) }}%</div>
+              <div class="card-trend">选定时间段</div>
             </div>
           </div>
 
           <!-- 图表区域：收支趋势+分类占比 -->
           <div class="chart-grid">
             <div class="chart-card">
-              <div class="chart-title">近12个月收支趋势</div>
+              <div class="chart-title">收支趋势</div>
               <div id="incomeExpenseTrendChart" class="chart-container"></div>
             </div>
             <div class="chart-card">
-              <div class="chart-title">本月支出分类占比</div>
+              <div class="chart-title">支出分类占比</div>
               <div id="expenseCategoryChart" class="chart-container"></div>
             </div>
           </div>
 
           <div class="chart-card full-width">
-            <div class="chart-title">本月收入分类占比</div>
+            <div class="chart-title">收入分类占比</div>
             <div id="incomeCategoryChart" class="chart-container"></div>
           </div>
         </div>
@@ -719,6 +781,104 @@ const searchForm = ref({
   user: ''
 });
 
+// 加载分析数据
+const loadAnalysisData = async () => {
+  try {
+    // 验证必要参数
+    if (analysisMode.value === 'personal' && !analysisUserId.value) {
+      ElMessage.warning('请选择要分析的用户');
+      return;
+    }
+    
+    if (!analysisStartDate.value || !analysisEndDate.value) {
+      ElMessage.warning('请选择完整的时间范围');
+      return;
+    }
+    
+    // 构造请求参数
+    const params = {
+      start_date: analysisStartDate.value,
+      end_date: analysisEndDate.value,
+      mode: analysisMode.value
+    };
+    
+    if (analysisMode.value === 'personal') {
+      params.user_id = analysisUserId.value;
+    }
+    
+    // 调用API获取分析数据
+    const res = await financeAPI.getAnalysisData(params);
+    
+    if (res.data.code === 200) {
+      const data = res.data.data;
+      
+      // 更新分析数据
+      analysisData.value = {
+        totalIncome: data.total_income || 0,
+        totalExpense: data.total_expense || 0,
+        balance: data.balance || 0,
+        incomeRatio: data.income_ratio || 0,
+        expenseByCategory: data.expense_by_category || [],
+        incomeByCategory: data.income_by_category || [],
+        monthlyTrend: data.monthly_trend || []
+      };
+      
+      // 更新图表
+      updateCharts();
+      
+      ElMessage.success('数据分析更新成功');
+    } else {
+      ElMessage.error(res.data.msg || '获取分析数据失败');
+    }
+  } catch (error) {
+    console.error('加载分析数据失败:', error);
+    ElMessage.error('加载分析数据失败，请稍后重试');
+  }
+};
+
+// 更新图表
+const updateCharts = () => {
+  // 更新收支趋势图
+  if (trendChart) {
+    const trendData = analysisData.value.monthlyTrend;
+    const months = trendData.map(item => item.month);
+    const incomes = trendData.map(item => item.income);
+    const expenses = trendData.map(item => item.expense);
+    
+    trendChart.setOption({
+      xAxis: { data: months },
+      series: [
+        { data: incomes },
+        { data: expenses }
+      ]
+    });
+  }
+  
+  // 更新支出分类饼图
+  if (expenseCategoryChart) {
+    const expenseData = analysisData.value.expenseByCategory.map(item => ({
+      value: item.amount,
+      name: item.category
+    }));
+    
+    expenseCategoryChart.setOption({
+      series: [{ data: expenseData }]
+    });
+  }
+  
+  // 更新收入分类饼图
+  if (incomeCategoryChart) {
+    const incomeData = analysisData.value.incomeByCategory.map(item => ({
+      value: item.amount,
+      name: item.category
+    }));
+    
+    incomeCategoryChart.setOption({
+      series: [{ data: incomeData }]
+    });
+  }
+};
+
 // 获取本月第一天
 function getFirstDayOfMonth() {
   const now = new Date();
@@ -766,10 +926,27 @@ const incomeTypes = ref([]);
 const recentIncomeList = ref([]);
 
 // 收支分析相关
-const monthTotalIncome = ref(17850.5);
-const monthTotalExpense = ref(8560.2);
-const monthBalance = ref(monthTotalIncome.value - monthTotalExpense.value);
-const expenseIncomeRatio = ref(Math.round((monthTotalExpense.value / monthTotalIncome.value) * 100));
+const monthTotalIncome = ref(0);
+const monthTotalExpense = ref(0);
+const monthBalance = ref(0);
+const expenseIncomeRatio = ref(0);
+
+// 分析面板控制变量
+const analysisMode = ref('family'); // 'family' 或 'personal'
+const analysisUserId = ref(''); // 个人模式下选择的用户ID
+const analysisStartDate = ref(getFirstDayOfMonth()); // 分析开始日期
+const analysisEndDate = ref(new Date().toISOString().split('T')[0]); // 分析结束日期
+
+// 分析数据
+const analysisData = ref({
+  totalIncome: 0,
+  totalExpense: 0,
+  balance: 0,
+  incomeRatio: 0,
+  expenseByCategory: [],
+  incomeByCategory: [],
+  monthlyTrend: []
+});
 
 // 图表实例
 let trendChart = null;
@@ -1377,6 +1554,9 @@ onMounted(async () => {
     await loadPendingExpenses(1);
     // 初始化支出明细数据
     await searchExpense(1);
+    
+    // 初始化分析数据
+    await loadAnalysisData();
   } catch (error) {
     console.error('初始化失败:', error);
   }
@@ -1875,6 +2055,63 @@ onUnmounted(() => {
   background-color: #fff2f0;
   color: #ff4d4f;
   border: 1px solid #ffccc7;
+}
+
+/* 分析面板控制样式 */
+.analysis-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: flex-end;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 200px;
+}
+
+.control-label {
+  font-weight: 500;
+  color: #333;
+  font-size: 14px;
+}
+
+.mode-options {
+  display: flex;
+  gap: 10px;
+}
+
+.mode-btn {
+  padding: 8px 16px;
+  border: 1px solid #d9d9d9;
+  background: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-size: 14px;
+}
+
+.mode-btn:hover {
+  border-color: #409eff;
+  color: #409eff;
+}
+
+.mode-btn.active {
+  background: #409eff;
+  border-color: #409eff;
+  color: #fff;
+}
+
+.date-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mb-20 {
+  margin-bottom: 20px;
 }
 
 /* 新增的进度显示样式 */

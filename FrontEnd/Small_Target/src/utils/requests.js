@@ -116,6 +116,9 @@ export const financeAPI = {
   // 收入管理
   getIncomes: (params) => service.get('/finance/incomes/', { params }),
   createIncome: (data) => service.post('/finance/incomes/', data),
+  
+  // 财务分析数据
+  getAnalysisData: (params) => service.get('/finance/analysis/', { params }),
 }
 
 // Kana相关API

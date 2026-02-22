@@ -10,4 +10,5 @@ urlpatterns = [
     path('import-status/', views.ImportBillView.as_view(), name='import_status'),  # 获取导入状态
     path('income-types/', views.IncomeTypeView.as_view(), name='income_types'),
     path('incomes/', views.IncomeView.as_view(), name='incomes'),
+    path('analysis/', views.FinanceAnalysisView.as_view(), name='finance_analysis'),
 ]
