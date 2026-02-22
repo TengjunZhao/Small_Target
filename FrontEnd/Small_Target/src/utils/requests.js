@@ -108,6 +108,14 @@ export const financeAPI = {
 
   // 家庭成员列表
   getFamilyMembers: () => service.get('/finance/family-members/'),
+  
+  // 收入类型管理
+  getIncomeTypes: () => service.get('/finance/income-types/'),
+  createIncomeType: (data) => service.post('/finance/income-types/', data),
+  
+  // 收入管理
+  getIncomes: (params) => service.get('/finance/incomes/', { params }),
+  createIncome: (data) => service.post('/finance/incomes/', data),
 }
 
 // Kana相关API

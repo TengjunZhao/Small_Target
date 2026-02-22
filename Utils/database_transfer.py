@@ -31,10 +31,11 @@ PG_CONFIG = {
 # ---------------------- 表映射 + 字段映射 + 冲突字段配置 ----------------------
 # 表映射（key: MySQL表名, value: PostgreSQL表名）
 TABLE_MAPPING = {
-    'budget_id': 'budget_category',
-    'db_expend_wechat': 'expend_wechat',
-    'db_expend_alipay': 'expend_alipay',
-    'db_expend': 'expend_merged'
+    # 'budget_id': 'budget_category',
+    # 'db_expend_wechat': 'expend_wechat',
+    # 'db_expend_alipay': 'expend_alipay',
+    # 'db_expend': 'expend_merged',
+    'db_income': 'income',
 }
 
 # 字段映射（key: PG表名, value: {PG字段: MySQL字段/默认值}）
@@ -95,6 +96,18 @@ FIELD_MAPPING = {
         'family_id': 1,                      # MySQL无此字段
         'user_id': 1,  # 兼容非数字值
     },
+    'income': {
+        'payday': 'payday',
+        'amount': 'salary',
+        'insurance': 'insurance',
+        'adjustment': 'adjustment',
+        'income': 'income',
+        'income_type_id':'1001',
+        'create_time':None,
+        'family_id':'1',
+        'relate_asset_id':None,
+        'user_id': '1'
+    }
 
 }
 

@@ -20,7 +20,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated, AllowAny
-from .models import UserProfile, Family, ExpendAlipay, ExpendWechat, ExpendMerged, BudgetCategory
+from .models import UserProfile, Family, ExpendAlipay, ExpendWechat, ExpendMerged, BudgetCategory, Income, IncomeType, Asset
 import logging
 from django.utils import timezone
 
@@ -510,6 +510,308 @@ class UserEmailConfigView(APIView):
             return Response({
                 'code': 500,
                 'msg': f'保存邮箱配置失败: {str(e)}',
+                'data': None
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# 收入类型管理API视图
+class IncomeTypeView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        """获取收入类型列表"""
+        try:
+            user = request.user
+            try:
+                user_profile = UserProfile.objects.get(user=user)
+                family = user_profile.family
+            except UserProfile.DoesNotExist:
+                return Response({
+                    'code': 400,
+                    'msg': '用户未配置家庭信息',
+                    'data': []
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 获取收入类型列表
+            income_types = IncomeType.objects.filter(family=family)
+            
+            data_list = []
+            for income_type in income_types:
+                data_list.append({
+                    'id': income_type.id,
+                    'income_maintype': income_type.income_maintype,
+                    'income_subtype': income_type.income_subtype,
+                    'create_time': income_type.create_time.strftime('%Y-%m-%d %H:%M:%S') if income_type.create_time else ''
+                })
+            
+            return Response({
+                'code': 200,
+                'msg': '获取收入类型成功',
+                'data': data_list
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"获取收入类型失败: {str(e)}")
+            return Response({
+                'code': 500,
+                'msg': f'获取收入类型失败: {str(e)}',
+                'data': []
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def post(self, request):
+        """创建收入类型"""
+        try:
+            user = request.user
+            try:
+                user_profile = UserProfile.objects.get(user=user)
+                family = user_profile.family
+            except UserProfile.DoesNotExist:
+                return Response({
+                    'code': 400,
+                    'msg': '用户未配置家庭信息',
+                    'data': None
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            income_maintype = request.data.get('income_maintype')
+            income_subtype = request.data.get('income_subtype')
+            
+            if not income_maintype or not income_subtype:
+                return Response({
+                    'code': 400,
+                    'msg': '收入类型和子类不能为空',
+                    'data': None
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 创建收入类型
+            income_type = IncomeType.objects.create(
+                family=family,
+                income_maintype=income_maintype,
+                income_subtype=income_subtype
+            )
+            
+            return Response({
+                'code': 200,
+                'msg': '收入类型创建成功',
+                'data': {
+                    'id': income_type.id,
+                    'income_maintype': income_type.income_maintype,
+                    'income_subtype': income_type.income_subtype
+                }
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"创建收入类型失败: {str(e)}")
+            return Response({
+                'code': 500,
+                'msg': f'创建收入类型失败: {str(e)}',
+                'data': None
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# 收入管理API视图
+class IncomeView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        """获取收入记录列表"""
+        try:
+            user = request.user
+            try:
+                user_profile = UserProfile.objects.get(user=user)
+                family = user_profile.family
+            except UserProfile.DoesNotExist:
+                return Response({
+                    'code': 400,
+                    'msg': '用户未配置家庭信息',
+                    'data': {}
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 获取分页参数
+            page = int(request.GET.get('page', 1))
+            page_size = int(request.GET.get('page_size', 10))
+            offset = (page - 1) * page_size
+            
+            # 获取筛选参数
+            user_id = request.GET.get('user_id', '')
+            income_type_id = request.GET.get('income_type_id', '')
+            start_date = request.GET.get('start_date', '')
+            end_date = request.GET.get('end_date', '')
+            
+            # 基础查询
+            queryset = Income.objects.filter(family=family)
+            
+            # 用户筛选
+            if user_id and user_id.strip():
+                queryset = queryset.filter(user_id=user_id)
+            
+            # 收入类型筛选
+            if income_type_id and income_type_id.strip():
+                queryset = queryset.filter(income_type_id=income_type_id)
+            
+            # 时间范围筛选
+            if start_date and start_date.strip():
+                try:
+                    start_datetime = dt.strptime(start_date, '%Y-%m-%d')
+                    queryset = queryset.filter(payday__gte=start_datetime)
+                except ValueError:
+                    return Response({
+                        'code': 400,
+                        'msg': '开始日期格式错误',
+                        'data': {}
+                    }, status=status.HTTP_400_BAD_REQUEST)
+            
+            if end_date and end_date.strip():
+                try:
+                    end_datetime = dt.strptime(end_date, '%Y-%m-%d')
+                    end_datetime = end_datetime.replace(hour=23, minute=59, second=59)
+                    queryset = queryset.filter(payday__lte=end_datetime)
+                except ValueError:
+                    return Response({
+                        'code': 400,
+                        'msg': '结束日期格式错误',
+                        'data': {}
+                    }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 获取总数和分页数据
+            total = queryset.count()
+            records = queryset.order_by('-payday')[offset:offset + page_size]
+            
+            # 序列化数据
+            data_list = []
+            for record in records:
+                data_list.append({
+                    'id': record.id,
+                    'amount': float(record.amount) if record.amount else 0,
+                    'insurance': float(record.insurance) if record.insurance else 0,
+                    'adjustment': float(record.adjustment) if record.adjustment else 0,
+                    'income': float(record.income) if record.income else 0,
+                    'payday': record.payday.strftime('%Y-%m-%d') if record.payday else '',
+                    'income_type_maintype': record.income_type.income_maintype if record.income_type else '',
+                    'income_type_subtype': record.income_type.income_subtype if record.income_type else '',
+                    'user': record.user.username if record.user else '',
+                    'remark': record.remark or '',
+                    'create_time': record.create_time.strftime('%Y-%m-%d %H:%M:%S') if record.create_time else ''
+                })
+            
+            # 获取收入类型选项
+            income_types = list(IncomeType.objects.filter(family=family).values('id', 'income_maintype', 'income_subtype'))
+            
+            return Response({
+                'code': 200,
+                'msg': '获取收入记录成功',
+                'data': {
+                    'records': data_list,
+                    'page': page,
+                    'page_size': page_size,
+                    'total': total,
+                    'total_pages': (total + page_size - 1) // page_size,
+                    'income_types': income_types
+                }
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"获取收入记录失败: {str(e)}")
+            return Response({
+                'code': 500,
+                'msg': f'获取收入记录失败: {str(e)}',
+                'data': {}
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def post(self, request):
+        """创建收入记录"""
+        try:
+            user = request.user
+            try:
+                user_profile = UserProfile.objects.get(user=user)
+                family = user_profile.family
+            except UserProfile.DoesNotExist:
+                return Response({
+                    'code': 400,
+                    'msg': '用户未配置家庭信息',
+                    'data': None
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 获取请求数据
+            income_type_id = request.data.get('income_type_id')
+            amount = request.data.get('amount')
+            insurance = request.data.get('insurance', 0)
+            adjustment = request.data.get('adjustment', 0)
+            income = request.data.get('income')
+            payday = request.data.get('payday')
+            user_id = request.data.get('user_id')
+            remark = request.data.get('remark', '')
+            
+            # 验证必填字段
+            if not income_type_id or not amount or not payday or not income:
+                return Response({
+                    'code': 400,
+                    'msg': '收入类型、税前总额、到账日期和税后收入不能为空',
+                    'data': None
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 处理日期格式
+            try:
+                from datetime import datetime
+                if isinstance(payday, str):
+                    payday = datetime.strptime(payday, '%Y-%m-%d').date()
+            except ValueError as e:
+                return Response({
+                    'code': 400,
+                    'msg': f'日期格式错误，请使用 YYYY-MM-DD 格式: {str(e)}',
+                    'data': None
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 验证收入类型是否存在
+            try:
+                income_type = IncomeType.objects.get(id=income_type_id, family=family)
+            except IncomeType.DoesNotExist:
+                return Response({
+                    'code': 400,
+                    'msg': '收入类型不存在',
+                    'data': None
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 验证用户是否存在
+            target_user = None
+            if user_id:
+                try:
+                    target_user = User.objects.get(id=user_id)
+                except User.DoesNotExist:
+                    return Response({
+                        'code': 400,
+                        'msg': '指定的用户不存在',
+                        'data': None
+                    }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 创建收入记录
+            income_record = Income.objects.create(
+                family=family,
+                user=target_user,
+                income_type=income_type,
+                amount=amount,
+                insurance=insurance,
+                adjustment=adjustment,
+                income=income,
+                payday=payday,
+                remark=remark
+            )
+            
+            return Response({
+                'code': 200,
+                'msg': '收入记录创建成功',
+                'data': {
+                    'id': income_record.id,
+                    'amount': float(income_record.amount),
+                    'income': float(income_record.income),
+                    'payday': income_record.payday.strftime('%Y-%m-%d') if income_record.payday else '',
+                    'income_type': f"{income_type.income_maintype}-{income_type.income_subtype}",
+                    'user': income_record.user.username if income_record.user else ''
+                }
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"创建收入记录失败: {str(e)}")
+            return Response({
+                'code': 500,
+                'msg': f'创建收入记录失败: {str(e)}',
                 'data': None
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 

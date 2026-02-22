@@ -202,6 +202,19 @@ class ExpendMerged(models.Model):
         ]
 
 
+# Income Type 表
+class IncomeType(models.Model):
+    """收入类型表"""
+    family = models.ForeignKey(Family, on_delete=models.CASCADE, verbose_name="所属家庭")
+    income_maintype = models.CharField(max_length=50, verbose_name="收入类型")
+    income_subtype = models.CharField(max_length=50, verbose_name="收入子类")
+    create_time = models.DateTimeField(default=timezone.now, verbose_name="创建时间")
+    class Meta:
+        verbose_name = "收入类型"
+        verbose_name_plural = "收入类型"
+        db_table = "income_type"
+
+
 class Income(models.Model):
     """收入表"""
     INCOME_TYPE_CHOICES = (
@@ -210,13 +223,15 @@ class Income(models.Model):
     )
     family = models.ForeignKey(Family, on_delete=models.CASCADE, verbose_name="所属家庭")
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="归属人")
-    income_type = models.CharField(max_length=20, choices=INCOME_TYPE_CHOICES, verbose_name="收入类型")
-    income_subtype = models.CharField(max_length=50, verbose_name="收入子类")
-    amount = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="金额（元）")
+    income_type = models.ForeignKey(IncomeType, on_delete=models.CASCADE, verbose_name="收入类型")
+    amount = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="税前总共金额（元）")
+    insurance = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="五险一金和税")
+    adjustment = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="税前调整")
+    income = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="税后实到金额（元）")
     payday = models.DateField(verbose_name="到账日期")
     relate_asset = models.ForeignKey(Asset, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="关联投资资产")
     remark = models.CharField(max_length=255, null=True, blank=True, verbose_name="备注")
-    create_time = models.DateTimeField(default=timezone.now, verbose_name="创建时间")
+    create_time = models.DateTimeField(default=timezone.now,  null=True, blank=True, verbose_name="创建时间")
 
     class Meta:
         verbose_name = "收入"

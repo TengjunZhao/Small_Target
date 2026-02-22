@@ -8,4 +8,6 @@ urlpatterns = [
     path('bill/', views.BillListView.as_view(), name='bill'),
     path('family-members/', views.FamilyMembersView.as_view(), name='family_members'),
     path('import-status/', views.ImportBillView.as_view(), name='import_status'),  # 获取导入状态
+    path('income-types/', views.IncomeTypeView.as_view(), name='income_types'),
+    path('incomes/', views.IncomeView.as_view(), name='incomes'),
 ]

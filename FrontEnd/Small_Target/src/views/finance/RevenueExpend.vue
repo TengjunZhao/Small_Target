@@ -376,24 +376,61 @@
             <div class="income-form">
               <div class="form-row">
                 <div class="form-group">
-                  <label class="form-label">收入金额：</label>
+                  <label class="form-label">税前总额（元）：</label>
                   <input
                     type="number"
                     class="form-input"
                     v-model="incomeForm.amount"
-                    placeholder="请输入收入金额"
+                    placeholder="请输入税前总收入"
                     min="0"
                     step="0.01"
                   >
                 </div>
                 <div class="form-group">
-                  <label class="form-label">收入类别：</label>
-                  <select class="form-select" v-model="incomeForm.category">
-                    <option value="salary">工资收入</option>
-                    <option value="bonus">奖金补贴</option>
-                    <option value="investment">投资收益</option>
-                    <option value="part-time">兼职收入</option>
-                    <option value="other">其他收入</option>
+                  <label class="form-label">五险一金和税（元）：</label>
+                  <input
+                    type="number"
+                    class="form-input"
+                    v-model="incomeForm.insurance"
+                    placeholder="请输入扣除的五险一金和税"
+                    min="0"
+                    step="0.01"
+                  >
+                </div>
+                <div class="form-group">
+                  <label class="form-label">税前调整（元）：</label>
+                  <input
+                    type="number"
+                    class="form-input"
+                    v-model="incomeForm.adjustment"
+                    placeholder="请输入税前调整金额"
+                    step="0.01"
+                  >
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">税后实到（元）：</label>
+                  <input
+                    type="number"
+                    class="form-input"
+                    v-model="incomeForm.income"
+                    placeholder="请输入实际到账金额"
+                    min="0"
+                    step="0.01"
+                  >
+                </div>
+                <div class="form-group">
+                  <label class="form-label">收入类型：</label>
+                  <select class="form-select" v-model="incomeForm.income_type_id">
+                    <option value="">请选择收入类型</option>
+                    <option
+                      v-for="incomeType in incomeTypes"
+                      :key="incomeType.id"
+                      :value="incomeType.id"
+                    >
+                      {{ incomeType.income_maintype }} - {{ incomeType.income_subtype }}
+                    </option>
                   </select>
                 </div>
                 <div class="form-group">
@@ -408,12 +445,12 @@
               <div class="form-row">
                 <div class="form-group">
                   <label class="form-label">所属用户：</label>
-                  <select class="form-select small-select" v-model="searchForm.user">
-                    <option value="">全部</option>
+                  <select class="form-select small-select" v-model="incomeForm.user_id">
+                    <option value="">请选择用户</option>
                     <option
                       v-for="member in familyMembers"
                       :key="member.user_id"
-                      :value="member.username"
+                      :value="member.user_id"
                     >
                       {{ member.username }}
                       <span v-if="member.is_admin">(管理员)</span>
@@ -444,19 +481,23 @@
               <table class="data-table">
                 <thead>
                   <tr>
-                    <th>时间</th>
-                    <th>金额(元)</th>
-                    <th>类别</th>
+                    <th>到账日期</th>
+                    <th>税前总额(元)</th>
+                    <th>扣除项(元)</th>
+                    <th>税后实到(元)</th>
+                    <th>收入类型</th>
                     <th>所属用户</th>
                     <th>备注</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr v-for="(item, index) in recentIncomeList" :key="index">
-                    <td>{{ item.time }}</td>
-                    <td class="text-green">+{{ item.amount }}</td>
-                    <td>{{ getIncomeCategoryText(item.category) }}</td>
-                    <td>{{ getUserText(item.user) }}</td>
+                    <td>{{ item.payday }}</td>
+                    <td class="text-green">{{ item.amount }}</td>
+                    <td>{{ item.insurance + item.adjustment }}</td>
+                    <td class="text-green">{{ item.income }}</td>
+                    <td>{{ item.income_type_maintype }}-{{ item.income_type_subtype }}</td>
+                    <td>{{ item.user }}</td>
                     <td>{{ item.remark || '-' }}</td>
                   </tr>
                 </tbody>
@@ -709,17 +750,20 @@ const expenseTotalCount = ref(0);
 
 // 收入录入相关
 const incomeForm = ref({
+  income_type_id: '',
   amount: '',
-  category: 'salary',
-  time: new Date().toISOString().split('T')[0],
-  user: 'user1',
+  insurance: '',
+  adjustment: '',
+  income: '',
+  payday: new Date().toISOString().split('T')[0],
+  user_id: '',
   remark: ''
 });
-const recentIncomeList = ref([
-  { time: '2024-05-10', amount: 15000.0, category: 'salary', user: 'user1', remark: '5月工资' },
-  { time: '2024-05-15', amount: 2000.0, category: 'bonus', user: 'user1', remark: '交通补贴' },
-  { time: '2024-05-20', amount: 850.5, category: 'investment', user: 'user2', remark: '理财收益' }
-]);
+
+// 收入类型选项
+const incomeTypes = ref([]);
+
+const recentIncomeList = ref([]);
 
 // 收支分析相关
 const monthTotalIncome = ref(17850.5);
@@ -750,7 +794,6 @@ const loadFamilyMembers = async () => {
   try {
     const res = await financeAPI.getFamilyMembers();
 
-
     if (res.data.code === 200) {
       familyMembers.value = res.data.data;
     } else {
@@ -766,6 +809,43 @@ const loadFamilyMembers = async () => {
       data: error.response?.data
     });
     ElMessage.error(`获取家庭成员失败: ${error.message}`);
+  }
+};
+
+// 获取收入类型列表
+const loadIncomeTypes = async () => {
+  try {
+    const res = await financeAPI.getIncomeTypes();
+
+    if (res.data.code === 200) {
+      incomeTypes.value = res.data.data;
+    } else {
+      console.error('API返回错误状态:', res.data);
+      ElMessage.error(res.data.msg || '获取收入类型失败');
+    }
+  } catch (error) {
+    console.error('获取收入类型网络错误:', error);
+    ElMessage.error(`获取收入类型失败: ${error.message}`);
+  }
+};
+
+// 获取最近收入记录
+const loadRecentIncomes = async () => {
+  try {
+    const res = await financeAPI.getIncomes({
+      page: 1,
+      page_size: 10
+    });
+
+    if (res.data.code === 200) {
+      recentIncomeList.value = res.data.data.records;
+    } else {
+      console.error('API返回错误状态:', res.data);
+      ElMessage.error(res.data.msg || '获取收入记录失败');
+    }
+  } catch (error) {
+    console.error('获取收入记录网络错误:', error);
+    ElMessage.error(`获取收入记录失败: ${error.message}`);
   }
 };
 
@@ -816,6 +896,68 @@ const loadPendingExpenses = async (page = 1) => {
     });
     ElMessage.error(`获取待确认支出明细失败: ${error.message}`);
   }
+};
+
+// 提交收入
+const submitIncome = async () => {
+  // 验证必填字段
+  if (!incomeForm.value.income_type_id) {
+    ElMessage.warning('请选择收入类型');
+    return;
+  }
+  if (!incomeForm.value.amount) {
+    ElMessage.warning('请输入税前总额');
+    return;
+  }
+  if (!incomeForm.value.income) {
+    ElMessage.warning('请输入税后实到金额');
+    return;
+  }
+  if (!incomeForm.value.payday) {
+    ElMessage.warning('请选择到账日期');
+    return;
+  }
+
+  try {
+    const requestData = {
+      income_type_id: incomeForm.value.income_type_id,
+      amount: parseFloat(incomeForm.value.amount),
+      insurance: parseFloat(incomeForm.value.insurance) || 0,
+      adjustment: parseFloat(incomeForm.value.adjustment) || 0,
+      income: parseFloat(incomeForm.value.income),
+      payday: incomeForm.value.payday,
+      user_id: incomeForm.value.user_id || null,
+      remark: incomeForm.value.remark || ''
+    };
+    console.log('提交收入数据:', requestData)
+    const res = await financeAPI.createIncome(requestData);
+
+    if (res.data.code === 200) {
+      ElMessage.success('收入记录提交成功');
+      resetIncomeForm();
+      // 重新加载最近收入列表
+      await loadRecentIncomes();
+    } else {
+      ElMessage.error(res.data.msg || '提交收入失败');
+    }
+  } catch (error) {
+    console.error('提交收入网络错误:', error);
+    ElMessage.error(`提交收入失败: ${error.message}`);
+  }
+};
+
+// 重置收入表单
+const resetIncomeForm = () => {
+  incomeForm.value = {
+    income_type_id: '',
+    amount: '',
+    insurance: '',
+    adjustment: '',
+    income: '',
+    payday: new Date().toISOString().split('T')[0],
+    user_id: '',
+    remark: ''
+  };
 };
 
 // 确认支出记录
@@ -1047,28 +1189,7 @@ const resetSearchForm = () => {
   };
 };
 
-// 收入录入方法
-const submitIncome = () => {
-  if (!incomeForm.value.amount || incomeForm.value.amount <= 0) {
-    alert('请输入有效的收入金额');
-    return;
-  }
-  recentIncomeList.value.unshift({
-    ...incomeForm.value,
-    amount: parseFloat(incomeForm.value.amount)
-  });
-  resetIncomeForm();
-  alert('收入记录提交成功');
-};
-const resetIncomeForm = () => {
-  incomeForm.value = {
-    amount: '',
-    category: 'salary',
-    time: new Date().toISOString().split('T')[0],
-    user: 'user1',
-    remark: ''
-  };
-};
+
 
 // 辅助文本转换
 const getIncomeCategoryText = (category) => {
@@ -1247,8 +1368,11 @@ onMounted(async () => {
       // 可以在这里处理邮箱配置信息
     }
 
-    // 加载家庭成员列表
+    // 加载基础数据
     await loadFamilyMembers();
+    await loadIncomeTypes();
+    await loadRecentIncomes();
+
     // 加载待确认支出明细
     await loadPendingExpenses(1);
     // 初始化支出明细数据
