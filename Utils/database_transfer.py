@@ -28,14 +28,23 @@ PG_CONFIG = {
     'database': 'smalltarget'
 }
 
+# PostgreSQL 本地配置（用于服务器到本地的同步）
+LOCAL_PG_CONFIG = {
+    'host': 'localhost',
+    'port': 5432,
+    'user': 'postgres',
+    'password': 'password',
+    'database': 'smalltarget'
+}
+
 # ---------------------- 表映射 + 字段映射 + 冲突字段配置 ----------------------
 # 表映射（key: MySQL表名, value: PostgreSQL表名）
 TABLE_MAPPING = {
     # 'budget_id': 'budget_category',
-    # 'db_expend_wechat': 'expend_wechat',
-    # 'db_expend_alipay': 'expend_alipay',
+    'db_expend_wechat': 'expend_wechat',
+    'db_expend_alipay': 'expend_alipay',
     'db_expend': 'expend_merged',
-    # 'db_income': 'income',
+    'db_income': 'income',
 }
 
 # 字段映射（key: PG表名, value: {PG字段: MySQL字段/默认值}）
@@ -288,8 +297,155 @@ def sync_table(mysql_conn, pg_conn, mysql_table, pg_table):
             pg_cursor.close()
 
 
+# ---------------------- 服务器到本地同步函数 ----------------------
+def sync_server_to_local():
+    """从服务器PostgreSQL向本地PostgreSQL同步数据"""
+    print("\n=== 开始服务器到本地数据同步 ===")
+    
+    # 连接服务器PostgreSQL
+    try:
+        server_pg_conn = psycopg2.connect(**PG_CONFIG)
+        print("服务器PostgreSQL连接成功")
+    except Exception as e:
+        print(f"服务器PostgreSQL连接失败：{str(e)}")
+        return
+    
+    # 连接本地PostgreSQL
+    try:
+        local_pg_conn = psycopg2.connect(**LOCAL_PG_CONFIG)
+        print("本地PostgreSQL连接成功")
+    except Exception as e:
+        print(f"本地PostgreSQL连接失败：{str(e)}")
+        server_pg_conn.close()
+        return
+    
+    # 定义需要同步的表（可以根据需要调整）
+    tables_to_sync = [
+        'expend_wechat',
+        'expend_alipay',
+        'expend_merged',
+        'income',
+    ]
+    
+    # 同步每个表
+    for table_name in tables_to_sync:
+        try:
+            sync_pg_table(server_pg_conn, local_pg_conn, table_name)
+        except Exception as e:
+            print(f"表 {table_name} 同步失败: {str(e)}")
+            continue
+    
+    # 关闭连接
+    server_pg_conn.close()
+    local_pg_conn.close()
+    print("服务器到本地同步完成")
+
+
+def sync_pg_table(source_conn, target_conn, table_name):
+    """同步PostgreSQL表数据（从源到目标）"""
+    try:
+        # 1. 从源表读取数据
+        source_cursor = source_conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        source_cursor.execute(f"SELECT * FROM {table_name}")
+        data = source_cursor.fetchall()
+        
+        if not data:
+            print(f"【{table_name}】无数据，跳过同步")
+            return
+        
+        print(f"【{table_name}】从源表读取到 {len(data)} 条记录")
+        
+        # 2. 获取表结构信息
+        source_cursor.execute(f"SELECT column_name, data_type "
+                              f"FROM information_schema.columns "
+                              f"WHERE table_name = '{table_name}' "
+                              f"ORDER BY ordinal_position")
+        columns_info = source_cursor.fetchall()
+        column_names = [col['column_name'] for col in columns_info]
+        
+        # 3. 清空目标表数据（可选，根据需求决定是否清空）
+        target_cursor = target_conn.cursor()
+        # target_cursor.execute(f"TRUNCATE TABLE {table_name} RESTART IDENTITY CASCADE")
+        # target_conn.commit()
+        # print(f"已清空目标表 {table_name}")
+        
+        # 4. 构建插入语句
+        columns_str = ', '.join(column_names)
+        placeholders = ', '.join(['%s'] * len(column_names))
+        insert_sql = f"INSERT INTO {table_name} ({columns_str}) VALUES ({placeholders})"
+        
+        # 5. 准备数据
+        rows = []
+        for row in data:
+            row_values = [row[col] for col in column_names]
+            rows.append(row_values)
+        
+        # 6. 批量插入
+        try:
+            extras.execute_batch(target_cursor, insert_sql, rows, page_size=1000)
+            target_conn.commit()
+            print(f"【{table_name}】成功同步 {len(rows)} 条记录到本地")
+        except psycopg2.errors.UniqueViolation as e:
+            # 处理主键冲突
+            target_conn.rollback()
+            print(f"检测到主键冲突，正在处理...")
+            
+            # 获取主键字段
+            source_cursor.execute(f"SELECT ccu.column_name FROM information_schema.table_constraints tc "
+                                    f"JOIN information_schema.constraint_column_usage ccu "
+                                    f"ON tc.constraint_name = ccu.constraint_name "
+                                    f"WHERE tc.table_name = '{table_name}' "
+                                    f"AND tc.constraint_type = 'PRIMARY KEY'")
+            pk_result = source_cursor.fetchone()
+            pk_column = pk_result['column_name'] if pk_result else None
+            
+            if pk_column:
+                # 删除冲突数据后重新插入
+                pk_values = [row[pk_column] for row in data if row[pk_column] is not None]
+                if pk_values:
+                    delete_sql = f"DELETE FROM {table_name} WHERE {pk_column} = ANY(%s)"
+                    target_cursor.execute(delete_sql, (pk_values,))
+                    target_conn.commit()
+                    print(f"已删除 {target_cursor.rowcount} 条冲突记录")
+                    
+                    # 重新插入
+                    extras.execute_batch(target_cursor, insert_sql, rows, page_size=1000)
+                    target_conn.commit()
+                    print(f"重新插入 {len(rows)} 条记录成功")
+            else:
+                raise e
+        
+    except Exception as e:
+        target_conn.rollback()
+        print(f"【{table_name}】同步失败：{str(e)}")
+        raise
+    finally:
+        if 'source_cursor' in locals():
+            source_cursor.close()
+        if 'target_cursor' in locals():
+            target_cursor.close()
+
+
 # ---------------------- 主函数 ----------------------
 def main():
+    """主函数 - 支持多种同步模式"""
+    import sys
+    
+    # 检查命令行参数
+    if len(sys.argv) > 1:
+        mode = sys.argv[1].lower()
+        if mode == 'server-to-local':
+            sync_server_to_local()
+            return
+        elif mode == 'mysql-to-pg':
+            # 继续执行原有的MySQL到PostgreSQL同步
+            pass
+        else:
+            print("用法: python database_transfer.py [mode]")
+            print("模式: mysql-to-pg (默认) | server-to-local")
+            return
+    
+    # 原有的MySQL到PostgreSQL同步逻辑
     # 连接 MySQL
     try:
         mysql_conn = pymysql.connect(**MYSQL_CONFIG)
@@ -339,3 +495,23 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# ---------------------- 使用说明 ----------------------
+"""
+使用方法：
+
+1. MySQL到PostgreSQL同步（默认模式）：
+   python database_transfer.py
+   或
+   python database_transfer.py mysql-to-pg
+
+2. 服务器PostgreSQL到本地PostgreSQL同步：
+   python database_transfer.py server-to-local
+
+注意事项：
+- 请根据实际情况修改数据库连接配置
+- 建议在生产环境中备份数据后再执行同步
+- 同步过程中会自动处理主键冲突
+- 可以根据需要调整需要同步的表列表
+"""
