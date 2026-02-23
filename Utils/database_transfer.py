@@ -20,8 +20,8 @@ MYSQL_CONFIG = {
 
 # PostgreSQL 服务器配置
 PG_CONFIG = {
-    # 'host': '43.137.41.36',
-    'host': 'localhost',
+    'host': '43.137.41.36',
+    # 'host': 'localhost',
     'port': 5432,
     'user': 'postgres',
     'password': 'password',
@@ -34,8 +34,8 @@ TABLE_MAPPING = {
     # 'budget_id': 'budget_category',
     # 'db_expend_wechat': 'expend_wechat',
     # 'db_expend_alipay': 'expend_alipay',
-    # 'db_expend': 'expend_merged',
-    'db_income': 'income',
+    'db_expend': 'expend_merged',
+    # 'db_income': 'income',
 }
 
 # 字段映射（key: PG表名, value: {PG字段: MySQL字段/默认值}）
@@ -237,7 +237,8 @@ def sync_table(mysql_conn, pg_conn, mysql_table, pg_table):
             insert_sql = f"""
                 INSERT INTO {pg_table} ({columns_str}) 
                 VALUES ({placeholders}) 
-                ON CONFLICT ({conflict_field}) DO NOTHING
+                ON CONFLICT ({conflict_field}) DO UPDATE SET
+                 {', '.join([f"{col} = EXCLUDED.{col}" for col in columns_str.split(', ') if col != conflict_field])}
             """
         else:
             # 无冲突字段：不做冲突处理（或根据需求调整）

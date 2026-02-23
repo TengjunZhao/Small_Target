@@ -119,6 +119,9 @@ export const financeAPI = {
   
   // 财务分析数据
   getAnalysisData: (params) => service.get('/finance/analysis/', { params }),
+  
+  // 预算分类子类目
+  getBudgetSubCategory: () => service.get('/finance/budget-sub-category/')
 }
 
 // Kana相关API

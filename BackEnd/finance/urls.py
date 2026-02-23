@@ -11,4 +11,5 @@ urlpatterns = [
     path('income-types/', views.IncomeTypeView.as_view(), name='income_types'),
     path('incomes/', views.IncomeView.as_view(), name='incomes'),
     path('analysis/', views.FinanceAnalysisView.as_view(), name='finance_analysis'),
+    path('budget-sub-category/', views.BudgetSubCategoryView.as_view(), name='budget_sub_category'),
 ]

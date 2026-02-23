@@ -682,7 +682,7 @@ def merge_to_main_table(family, user):
                 'price': record.price,
                 'status': record.status,
                 'trade_time': record.trade_time,
-                'belonging': record.belonging,
+                # 'belonging': record.belonging,
                 'family_id': family.id,
                 'user_id': user.id
             })

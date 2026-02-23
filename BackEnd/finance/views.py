@@ -946,6 +946,51 @@ class BillListView(APIView):
                 'data': {}
             })
 
+# 预算分类子类目API视图
+class BudgetSubCategoryView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        """获取预算分类的子类目列表"""
+        try:
+            user = request.user
+            try:
+                user_profile = UserProfile.objects.get(user=user)
+                family = user_profile.family
+            except UserProfile.DoesNotExist:
+                return Response({
+                    'code': 400,
+                    'msg': '用户未配置家庭信息',
+                    'data': []
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 获取该家庭的所有预算分类
+            budget_categories = BudgetCategory.objects.filter(family=family)
+            
+            # 构造返回数据
+            categories_list = []
+            for category in budget_categories:
+                categories_list.append({
+                    'id': category.id,
+                    'main_category': category.main_category,
+                    'sub_category': category.sub_category,
+                    'is_fixed': category.is_fixed
+                })
+            
+            return Response({
+                'code': 200,
+                'msg': '获取预算分类成功',
+                'data': categories_list
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"获取预算分类失败: {str(e)}")
+            return Response({
+                'code': 500,
+                'msg': f'获取预算分类失败: {str(e)}',
+                'data': []
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 # 财务分析API视图
 class FinanceAnalysisView(APIView):
     permission_classes = [IsAuthenticated]

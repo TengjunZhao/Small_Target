@@ -1087,9 +1087,32 @@ const loadRecentIncomes = async () => {
   }
 };
 
+// 获取预算分类数据
+const loadBudgetCategories = async () => {
+  try {
+    const res = await financeAPI.getBudgetSubCategory();
+    
+    if (res.data.code === 200 && res.data.data) {
+      budgetCategories.value = res.data.data;
+      console.log('预算分类数据加载成功:', budgetCategories.value);
+    } else {
+      console.warn('未能获取预算分类数据');
+      budgetCategories.value = [];
+    }
+  } catch (error) {
+    console.error('加载预算分类数据失败:', error);
+    budgetCategories.value = [];
+  }
+};
+
 // 获取待确认支出明细
 const loadPendingExpenses = async (page = 1) => {
   try {
+    // 先确保预算分类数据已加载
+    if (budgetCategories.value.length === 0) {
+      await loadBudgetCategories();
+    }
+    
     const res = await financeAPI.getPendingExpenses({
       page: page,
       page_size: pendingPageSize.value
@@ -1101,23 +1124,31 @@ const loadPendingExpenses = async (page = 1) => {
       pendingTotalPages.value = res.data.data.total_pages;
       pendingTotalCount.value = res.data.data.total;
 
-      // 为每条记录初始化调整项目字段
+      // 为每条记录初始化调整项目字段并自动匹配
       pendingExpenseList.value.forEach(item => {
         item.adjusted_sub_category = ''; // 初始化空值
 
-        // 等待 budgetCategories 加载完成后再匹配（关键：确保数据源存在）
-        if (budgetCategories.value.length === 0) return;
-
         // 核心逻辑：根据 item.sub_category 匹配 budgetCategories 中的分类，取其 id 赋值
-        const matchedCategory = budgetCategories.value.find(
-          cate => cate.sub_category === item.sub_category // 按分类名称匹配
-        );
+        if (budgetCategories.value.length > 0 && item.sub_category) {
+          const matchedCategory = budgetCategories.value.find(
+            cate => cate.sub_category === item.sub_category // 按分类名称精确匹配
+          );
 
-        if (matchedCategory) {
-          item.adjusted_sub_category = matchedCategory.id; // 赋值正确的 id，控件自动选中
-          // console.log('Item', item.sub_category, '匹配到的分类ID:', matchedCategory.id);
-        } else {
-          console.log('Item', item.sub_category, '未找到匹配的分类');
+          if (matchedCategory) {
+            item.adjusted_sub_category = matchedCategory.id; // 赋值正确的 id，控件自动选中
+            console.log('自动匹配成功:', item.sub_category, '->', matchedCategory.id);
+          } else {
+            console.log('未找到匹配的分类:', item.sub_category);
+            // 如果没有精确匹配，尝试模糊匹配
+            const fuzzyMatch = budgetCategories.value.find(
+              cate => cate.sub_category.includes(item.sub_category) || 
+                     item.sub_category.includes(cate.sub_category)
+            );
+            if (fuzzyMatch) {
+              item.adjusted_sub_category = fuzzyMatch.id;
+              console.log('模糊匹配成功:', item.sub_category, '->', fuzzyMatch.id);
+            }
+          }
         }
       });
     } else {
@@ -1566,6 +1597,7 @@ onMounted(async () => {
 
     // 加载基础数据
     await loadFamilyMembers();
+    await loadBudgetCategories(); // 先加载预算分类数据
     await loadPendingExpenses(1);
 
     // 初始进入分析页时初始化图表
