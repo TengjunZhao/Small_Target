@@ -521,7 +521,7 @@ def import_alipay_data(file_path, family, user):
         for _, row in df.iterrows():
             try:
                 # 提取关键字段
-                transaction_id = str(row.get('交易号', ''))[:100]
+                transaction_id = str(row.get('交易订单号', ''))[:100]
                 if not transaction_id:
                     continue
                     
@@ -531,13 +531,13 @@ def import_alipay_data(file_path, family, user):
                     # 调整时区，增加时区信息
                     trade_time = timezone.make_aware(trade_time)
                 
-                price = float(row.get('金额(元)', 0))
-                in_out = '支出' if price < 0 else '收入'
+                price = float(row.get('金额', 0))
+                in_out = str(row.get('收/支', ''))[:100]
                 commodity = str(row.get('商品说明', ''))[:100]
                 person = str(row.get('交易对方', ''))[:100]
                 exchange = str(row.get('交易对方', ''))[:50]
                 status = str(row.get('交易状态', ''))[:50]
-                trade_category = str(row.get('收/支', ''))[:50]
+                trade_category = str(row.get('交易分类', ''))[:50]
                 
                 # 获取或创建预算分类
                 category_id = categorize_expense(commodity)
