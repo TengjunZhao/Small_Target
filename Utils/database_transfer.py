@@ -341,6 +341,58 @@ def sync_server_to_local():
     print("服务器到本地同步完成")
 
 
+# ---------------------- 本地到服务器恢复函数 ----------------------
+def sync_local_to_server():
+    """从本地PostgreSQL向服务器PostgreSQL恢复数据"""
+    print("\n=== 开始本地到服务器数据恢复 ===")
+    
+    # 连接本地PostgreSQL
+    try:
+        local_pg_conn = psycopg2.connect(**LOCAL_PG_CONFIG)
+        print("本地PostgreSQL连接成功")
+    except Exception as e:
+        print(f"本地PostgreSQL连接失败：{str(e)}")
+        return
+    
+    # 连接服务器PostgreSQL
+    try:
+        server_pg_conn = psycopg2.connect(**PG_CONFIG)
+        print("服务器PostgreSQL连接成功")
+    except Exception as e:
+        print(f"服务器PostgreSQL连接失败：{str(e)}")
+        local_pg_conn.close()
+        return
+    
+    # 定义需要恢复的表（按依赖关系排序）
+    tables_to_restore = [
+        # 'family',                    # 基础表，无外键依赖
+        # 'user_finance_profile',      # 依赖 family
+        # 'budget_category',           # 依赖 family
+        # 'income_type',              # 依赖 family
+        # 'asset',                     # 依赖 family, user
+        # 'liability',                 # 依赖 family, user
+        # 'investment',                # 依赖 family, asset
+        # 'invest_target',             # 依赖 family
+        'expend_wechat',             # 依赖 family, user, budget_category
+        'expend_alipay',             # 依赖 family, user, budget_category
+        'expend_merged',             # 依赖 family, user, budget_category
+        # 'income'                     # 依赖 family, user, income_type, asset
+    ]
+    
+    # 恢复每个表
+    for table_name in tables_to_restore:
+        try:
+            restore_pg_table(local_pg_conn, server_pg_conn, table_name)
+        except Exception as e:
+            print(f"表 {table_name} 恢复失败: {str(e)}")
+            continue
+    
+    # 关闭连接
+    local_pg_conn.close()
+    server_pg_conn.close()
+    print("本地到服务器数据恢复完成")
+
+
 def sync_pg_table(source_conn, target_conn, table_name):
     """同步PostgreSQL表数据（从源到目标）"""
     try:
@@ -426,6 +478,100 @@ def sync_pg_table(source_conn, target_conn, table_name):
             target_cursor.close()
 
 
+def restore_pg_table(source_conn, target_conn, table_name):
+    """恢复PostgreSQL表数据（从本地到服务器）"""
+    try:
+        # 1. 从源表读取数据
+        source_cursor = source_conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        source_cursor.execute(f"SELECT * FROM {table_name}")
+        data = source_cursor.fetchall()
+        
+        if not data:
+            print(f"【{table_name}】无数据，跳过恢复")
+            return
+        
+        print(f"【{table_name}】从本地读取到 {len(data)} 条记录")
+        
+        # 2. 获取表结构信息
+        source_cursor.execute(f"SELECT column_name, data_type "
+                              f"FROM information_schema.columns "
+                              f"WHERE table_name = '{table_name}' "
+                              f"ORDER BY ordinal_position")
+        columns_info = source_cursor.fetchall()
+        column_names = [col['column_name'] for col in columns_info]
+        
+        # 3. 在服务器端处理表数据
+        target_cursor = target_conn.cursor()
+        
+        # 4. 构建插入语句（使用ON CONFLICT DO NOTHING避免重复）
+        columns_str = ', '.join(column_names)
+        placeholders = ', '.join(['%s'] * len(column_names))
+        
+        # 尝试获取主键字段用于冲突处理
+        source_cursor.execute(f"SELECT ccu.column_name FROM information_schema.table_constraints tc "
+                                f"JOIN information_schema.constraint_column_usage ccu "
+                                f"ON tc.constraint_name = ccu.constraint_name "
+                                f"WHERE tc.table_name = '{table_name}' "
+                                f"AND tc.constraint_type = 'PRIMARY KEY'")
+        pk_result = source_cursor.fetchone()
+        pk_column = pk_result['column_name'] if pk_result else None
+        
+        if pk_column:
+            # 有主键：使用ON CONFLICT DO UPDATE策略
+            insert_sql = f"INSERT INTO {table_name} ({columns_str}) VALUES ({placeholders}) "
+            insert_sql += f"ON CONFLICT ({pk_column}) DO UPDATE SET "
+            update_fields = [f"{col} = EXCLUDED.{col}" for col in column_names if col != pk_column]
+            insert_sql += ', '.join(update_fields)
+        else:
+            # 无主键：使用ON CONFLICT DO NOTHING
+            insert_sql = f"INSERT INTO {table_name} ({columns_str}) VALUES ({placeholders}) ON CONFLICT DO NOTHING"
+        
+        # 5. 准备数据
+        rows = []
+        for row in data:
+            row_values = [row[col] for col in column_names]
+            rows.append(row_values)
+        
+        # 6. 批量插入
+        try:
+            extras.execute_batch(target_cursor, insert_sql, rows, page_size=1000)
+            target_conn.commit()
+            print(f"【{table_name}】成功恢复 {len(rows)} 条记录到服务器")
+        except Exception as e:
+            # 如果ON CONFLICT策略失败，尝试先删除后插入的方式
+            target_conn.rollback()
+            print(f"检测到冲突，正在使用备用恢复策略...")
+            
+            if pk_column:
+                # 删除已存在的记录
+                pk_values = [row[column_names.index(pk_column)] for row in rows if row[column_names.index(pk_column)] is not None]
+                if pk_values:
+                    delete_sql = f"DELETE FROM {table_name} WHERE {pk_column} = ANY(%s)"
+                    target_cursor.execute(delete_sql, (pk_values,))
+                    target_conn.commit()
+                    print(f"已删除 {target_cursor.rowcount} 条冲突记录")
+                    
+                    # 重新插入（不带冲突处理）
+                    simple_insert_sql = f"INSERT INTO {table_name} ({columns_str}) VALUES ({placeholders})"
+                    extras.execute_batch(target_cursor, simple_insert_sql, rows, page_size=1000)
+                    target_conn.commit()
+                    print(f"重新插入 {len(rows)} 条记录成功")
+            else:
+                # 无主键的情况下，可以考虑清空表后重新插入
+                print(f"表 {table_name} 无主键，跳过冲突处理")
+                raise e
+        
+    except Exception as e:
+        target_conn.rollback()
+        print(f"【{table_name}】恢复失败：{str(e)}")
+        raise
+    finally:
+        if 'source_cursor' in locals():
+            source_cursor.close()
+        if 'target_cursor' in locals():
+            target_cursor.close()
+
+
 # ---------------------- 主函数 ----------------------
 def main():
     """主函数 - 支持多种同步模式"""
@@ -437,12 +583,15 @@ def main():
         if mode == 'server-to-local':
             sync_server_to_local()
             return
+        elif mode == 'local-to-server':
+            sync_local_to_server()
+            return
         elif mode == 'mysql-to-pg':
             # 继续执行原有的MySQL到PostgreSQL同步
             pass
         else:
             print("用法: python database_transfer.py [mode]")
-            print("模式: mysql-to-pg (默认) | server-to-local")
+            print("模式: mysql-to-pg (默认) | server-to-local | local-to-server")
             return
     
     # 原有的MySQL到PostgreSQL同步逻辑
@@ -509,9 +658,13 @@ if __name__ == "__main__":
 2. 服务器PostgreSQL到本地PostgreSQL同步：
    python database_transfer.py server-to-local
 
+3. 本地PostgreSQL到服务器PostgreSQL恢复：
+   python database_transfer.py local-to-server
+
 注意事项：
 - 请根据实际情况修改数据库连接配置
-- 建议在生产环境中备份数据后再执行同步
-- 同步过程中会自动处理主键冲突
-- 可以根据需要调整需要同步的表列表
+- 建议在生产环境中备份数据后再执行同步/恢复
+- 同步/恢复过程中会自动处理主键冲突
+- 表的恢复顺序已按外键依赖关系排列
+- 可以根据需要调整需要同步/恢复的表列表
 """

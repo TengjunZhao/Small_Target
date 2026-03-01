@@ -701,7 +701,7 @@ def merge_to_main_table(family, user):
                 'price': record.price,
                 'status': record.status,
                 'trade_time': record.trade_time,
-                'belonging': record.belonging,
+                # 'belonging': record.belonging,
                 'family_id': family.id,
                 'user_id': user.id
             })
@@ -723,7 +723,7 @@ def merge_to_main_table(family, user):
                         'price': data['price'],
                         'status': data['status'][:255] if data['status'] is not None else "",
                         'trade_time': data['trade_time'],
-                        'belonging': data['belonging'],
+                        # 'belonging': data['belonging'],
                         'family_id': data['family_id'],
                         'user_id': data['user_id']
                     }
