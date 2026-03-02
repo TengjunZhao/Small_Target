@@ -521,7 +521,7 @@ def import_alipay_data(file_path, family, user):
         for _, row in df.iterrows():
             try:
                 # 提取关键字段
-                transaction_id = str(row.get('交易订单号', ''))[:100]
+                transaction_id = str(row.get('交易订单号', '')).strip().replace('\t', '')[:100]
                 if not transaction_id:
                     continue
                     
@@ -597,7 +597,7 @@ def import_wechat_data(file_path, family, user):
         for _, row in df.iterrows():
             try:
                 # 提取关键字段
-                transaction_id = str(row.get('交易单号', ''))[:100]
+                transaction_id = str(row.get('交易单号', '')).strip().replace('\t', '')[:100]
                 if not transaction_id:
                     continue
                     
