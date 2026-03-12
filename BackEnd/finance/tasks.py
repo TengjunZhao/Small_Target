@@ -122,7 +122,7 @@ def import_bill_task(self, user_id, alipay_password='', wechat_password=''):
         merge_result = None
         try:
             merge_result = merge_db_data(family, user)
-            logger.info("数据合并逻辑执行完成")
+            logger.info("数据合并逻辑执行完成V1.0")
         except Exception as merge_error:
             logger.error(f"数据合并过程中发生错误: {str(merge_error)}")
             raise
