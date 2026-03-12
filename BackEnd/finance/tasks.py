@@ -709,26 +709,29 @@ def merge_to_main_table(family, user):
         # 合并数据
         merged_data = alipay_list + wechat_list
 
-        # 写入合并表 - 使用字典方式
+        # 写入合并表 - 使用字典方式，只添加新记录
         for data in merged_data:
             try:
-                ExpendMerged.objects.update_or_create(
-                    transaction_id=data['transaction_id'],
-                    defaults={
-                        'expend_channel': data['channel'].lower(),
-                        'budget_id': data['budget_id'],
-                        'commodity': data['commodity'][:100] if data['commodity'] is not None else "",
-                        'in_out': data['in_out'][:5] if data['in_out'] is not None else "",
-                        'person': data['person'][:100] if data['person'] is not None else "",
-                        'price': data['price'],
-                        'status': data['status'][:255] if data['status'] is not None else "",
-                        'trade_time': data['trade_time'],
-                        # 'belonging': data['belonging'],
-                        'family_id': data['family_id'],
-                        'user_id': data['user_id']
-                    }
-                )
-                success_count += 1
+                # 检查记录是否已存在
+                if not ExpendMerged.objects.filter(transaction_id=data['transaction_id']).exists():
+                    # 只在新记录不存在时才创建
+                    ExpendMerged.objects.create(
+                        transaction_id=data['transaction_id'],
+                        expend_channel=data['channel'].lower(),
+                        budget_id=data['budget_id'],
+                        commodity=data['commodity'][:100] if data['commodity'] is not None else "",
+                        in_out=data['in_out'][:5] if data['in_out'] is not None else "",
+                        person=data['person'][:100] if data['person'] is not None else "",
+                        price=data['price'],
+                        status=data['status'][:255] if data['status'] is not None else "",
+                        trade_time=data['trade_time'],
+                        family_id=data['family_id'],
+                        user_id=data['user_id']
+                    )
+                    success_count += 1
+                else:
+                    # 记录已存在，跳过
+                    logger.debug(f"记录已存在，跳过：{data['transaction_id']}")
             except Exception as e:
                 error_info = {
                     'transaction_id': data['transaction_id'],
@@ -737,7 +740,7 @@ def merge_to_main_table(family, user):
                     'data': str(data)
                 }
                 failed_records.append(error_info)
-                logger.warning(f"合并记录失败: {str(e)}, 数据: {data}")
+                logger.warning(f"合并记录失败：{str(e)}, 数据：{data}")
                 continue
 
         logger.info(f"数据合并完成，成功{success_count}条，失败{len(failed_records)}条")
