@@ -415,7 +415,7 @@ class ZipHandler:
 
     def process_xlsx_file(self, file_path):
         try:
-            df = pd.read_excel(file_path, skiprows=16)
+            df = pd.read_excel(file_path, skiprows=17)
             self.save_to_excel(df, file_path)
         except Exception as e:
             logger.error(f"处理XLSX文件失败: {str(e)}")
@@ -424,18 +424,20 @@ class ZipHandler:
         try:
             if 'ali' in original_path or '交易' in original_path:
                 xlsx_path = os.path.join(self.tar_path, 'ali.xlsx')
-                if '金额(元)' in df.columns:
-                    df['金额(元)'] = pd.to_numeric(df['金额(元)'].str.replace('¥', ''), errors='coerce')
             elif 'wechat' in original_path or '微信' in original_path:
                 xlsx_path = os.path.join(self.tar_path, 'we.xlsx')
-                if '金额(元)' in df.columns:
-                    df['金额(元)'] = pd.to_numeric(df['金额(元)'].str.replace('¥', ''), errors='coerce')
             else:
                 raise ValueError('Invalid file path')
-            
+
+            # 安全清洗金额列：不管是字符串还是数字，都能处理
+            if '金额(元)' in df.columns:
+                # 先转字符串 → 去掉 ¥ → 再转数字
+                df['金额(元)'] = pd.to_numeric(
+                    df['金额(元)'].astype(str).str.replace('¥', '').str.strip(),
+                    errors='coerce'
+                )
             if os.path.exists(xlsx_path):
                 os.remove(xlsx_path)
-            
             df.to_excel(xlsx_path, index=False)
             logger.info(f'保存XLSX文件: {xlsx_path}')
         except Exception as e:
